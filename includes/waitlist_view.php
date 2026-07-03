@@ -6,7 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= te('waitlist.title') ?></title>
 <meta name="description" content="<?= te('waitlist.subtitle') ?>">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/public.css?v=<?= assetVersion('css/public.css') ?>">
 </head>
 <body>
@@ -19,7 +20,7 @@
 
     <div class="card-p">
       <form id="waitlistForm" novalidate>
-        <label for="wlEmail" class="sr-only" style="display:none"><?= te('waitlist.emailPlaceholder') ?></label>
+        <label for="wlEmail" style="display:none"><?= te('waitlist.emailPlaceholder') ?></label>
         <input type="email" id="wlEmail" class="input-p" autocomplete="email"
                placeholder="<?= te('waitlist.emailPlaceholder') ?>" required>
         <!-- Honeypot: humans never see or fill this -->
@@ -29,7 +30,7 @@
         <label class="consent-line">
           <input type="checkbox" id="wlConsent">
           <span><?= str_replace('Privatumo politikoje',
-                    '<a href="privatumas.php">Privatumo politikoje</a>',
+                    '<a href="privatumas.php" data-policy="privacy">Privatumo politikoje</a>',
                     te('waitlist.consent')) ?></span>
         </label>
         <div style="margin-top:1.25rem">
@@ -41,9 +42,10 @@
   </div>
 </div>
 <footer class="footer-p">
-  <a href="privatumas.php"><?= te('privacy.page.title') ?></a> ·
-  <a href="slapukai.php"><?= te('cookies.page.title') ?></a>
+  <a href="privatumas.php" data-policy="privacy"><?= te('privacy.page.title') ?></a> ·
+  <a href="slapukai.php" data-policy="cookies"><?= te('cookies.page.title') ?></a>
 </footer>
+<?php require __DIR__ . '/policy_modals.php'; ?>
 <script>
 (function () {
   const form = document.getElementById('waitlistForm');
