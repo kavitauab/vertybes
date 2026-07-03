@@ -1,0 +1,161 @@
+/* Vertybių testas — public styles
+   Fixed MVP palette per spec: bg #F8F3EA, primary #496E50, error #B42318.
+   Font token kept configurable — swap --font once Figma confirms it. */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F8F3EA;
+  --primary: #496E50;
+  --primary-dark: #3a5940;
+  --primary-soft: #e6ede7;
+  --error: #B42318;
+  --error-bg: #fdf1f0;
+  --text: #2b2b26;
+  --muted: #6f6a5e;
+  --border: #e4dccb;
+  --surface: #ffffff;
+  --font: "DM Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+html { height: 100%; }
+body {
+  min-height: 100%;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+}
+
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem 3rem;
+  width: 100%;
+}
+
+.shell { width: 100%; max-width: 560px; }
+.shell.wide { max-width: 720px; }
+
+.brand {
+  text-align: center;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -.02em;
+  font-size: 1.05rem;
+  margin-bottom: 2.25rem;
+}
+
+h1.hero {
+  font-size: clamp(1.75rem, 5vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1.15;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.sub {
+  font-size: 1.05rem;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: .85rem;
+}
+
+.meta {
+  font-size: .88rem;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.card-p {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.75rem;
+}
+
+/* Buttons */
+.btn-p {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  min-height: 52px; padding: .8rem 2rem;
+  font-size: 1rem; font-weight: 600; font-family: inherit;
+  color: #fff; background: var(--primary);
+  border: none; border-radius: 10px; cursor: pointer;
+  text-decoration: none;
+  transition: background .15s, transform .1s;
+}
+.btn-p:hover { background: var(--primary-dark); }
+.btn-p:active { transform: scale(.985); }
+.btn-p:disabled { opacity: .55; cursor: default; }
+.btn-p.ghost { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+.btn-p.ghost:hover { background: var(--primary-soft); }
+.btn-p.block { width: 100%; }
+
+/* Forms */
+.input-p {
+  width: 100%; min-height: 52px; padding: .8rem 1rem;
+  font-size: 1rem; font-family: inherit;
+  color: var(--text); background: var(--surface);
+  border: 1.5px solid var(--border); border-radius: 10px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.input-p:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(73,110,80,.12);
+}
+.input-p.invalid { border-color: var(--error); }
+
+.field-error {
+  display: none;
+  color: var(--error); font-size: .85rem; font-weight: 500;
+  margin-top: .45rem;
+}
+.field-error.show { display: block; }
+
+.consent-line {
+  display: flex; gap: .6rem; align-items: flex-start;
+  font-size: .85rem; color: var(--muted);
+  margin-top: 1rem; text-align: left;
+}
+.consent-line input[type=checkbox] {
+  width: 18px; height: 18px; margin-top: .15rem;
+  accent-color: var(--primary); flex-shrink: 0;
+}
+.consent-line a { color: var(--primary); }
+
+.success-note {
+  display: none;
+  background: var(--primary-soft); color: var(--primary);
+  border-radius: 10px; padding: 1rem 1.2rem;
+  font-weight: 600; text-align: center; margin-top: 1rem;
+}
+.success-note.show { display: block; }
+
+.footer-p {
+  text-align: center; padding: 1.25rem;
+  font-size: .8rem; color: var(--muted);
+}
+.footer-p a { color: var(--muted); }
+
+/* Policy pages */
+.policy { max-width: 640px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; width: 100%; }
+.policy h1 { font-size: 1.6rem; letter-spacing: -.02em; margin-bottom: 1.25rem; }
+.policy .body { white-space: pre-wrap; color: var(--text); }
+.back-link {
+  display: inline-flex; align-items: center; gap: .4rem;
+  color: var(--primary); text-decoration: none; font-weight: 600;
+  font-size: .92rem; margin-bottom: 1.75rem;
+}
+.back-link:hover { text-decoration: underline; }
+
+@media (max-width: 480px) {
+  .card-p { padding: 1.25rem; }
+}

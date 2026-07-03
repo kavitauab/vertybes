@@ -1,0 +1,16 @@
+# Vertybių testas — root .htaccess (Apache/LiteSpeed shared hosting)
+# Nginx deployments: replicate these denies in the server block (see README).
+
+# Deny sensitive files
+<FilesMatch "^(\.env|\.env\..*|config\.php|database\.php|auth\.php|logger\.php)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.(log|md|sql|sh)$">
+    Require all denied
+</FilesMatch>
+
+Options -Indexes
+
+# UTF-8 default
+AddDefaultCharset utf-8
