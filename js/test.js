@@ -252,13 +252,6 @@
             <div class="nav-row">
               <button class="btn-p ghost" id="backBtn">${esc(T('common.back'))}</button>
               <button class="btn-p" id="confirmBtn">${esc(T('common.continue'))}</button>
-            </div>
-            <div class="picker-overlay" id="picker">
-              <div class="picker">
-                <input type="text" class="input-p picker-search" id="pickerSearch"
-                       placeholder="${esc(T('values.review.searchPlaceholder'))}">
-                <div class="picker-list" id="pickerList"></div>
-              </div>
             </div>`);
 
         app.querySelectorAll('.value-chip').forEach(chip => {
@@ -266,13 +259,43 @@
         });
         document.getElementById('backBtn').onclick = () => { S.qIndex = 0; showQuestion(); };
         document.getElementById('confirmBtn').onclick = confirmValues;
-        document.getElementById('picker').addEventListener('click', e => {
-            if (e.target.id === 'picker') closePicker();
-        });
+    }
+
+    /**
+     * The picker lives on document.body, NOT inside the rendered screen:
+     * .screen carries a transform animation, and a filled transform animation
+     * makes the element the containing block for position:fixed descendants —
+     * the overlay would anchor to the page content instead of the viewport.
+     * (The policy popups avoid the same bug the same way.)
+     */
+    function ensurePicker() {
+        if (document.getElementById('picker')) return;
+        const el = document.createElement('div');
+        el.className = 'picker-overlay';
+        el.id = 'picker';
+        el.innerHTML = `
+            <div class="picker">
+              <input type="text" class="input-p picker-search" id="pickerSearch"
+                     placeholder="${esc(T('values.review.searchPlaceholder'))}">
+              <div class="picker-list" id="pickerList"></div>
+            </div>`;
+        document.body.appendChild(el);
+
         document.getElementById('pickerSearch').addEventListener('input', renderPickerList);
+        // Backdrop close: press must start AND end on the backdrop
+        let downOnBackdrop = false;
+        el.addEventListener('mousedown', e => { downOnBackdrop = e.target === el; });
+        el.addEventListener('mouseup', e => {
+            if (downOnBackdrop && e.target === el) closePicker();
+            downOnBackdrop = false;
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && el.classList.contains('open')) closePicker();
+        });
     }
 
     function openPicker(i) {
+        ensurePicker();
         S.pickerFor = i;
         document.getElementById('pickerSearch').value = '';
         renderPickerList();
