@@ -165,27 +165,27 @@
   letter-spacing: .08em; text-transform: uppercase; align-self: center;
 }
 
-/* Result — editorial drop numerals, baseline-locked to the value name.
-   align-items:baseline makes the numeral and the serif title share a text
-   baseline, so alignment can never drift the way a floating badge does. */
+/* Result — a single text column per card: kicker label, value, meaning.
+   No floating rank element, so there is nothing to misalign. */
 .result-cards { display: flex; flex-direction: column; gap: .9rem; margin: 1.75rem 0; }
 .result-card {
-  display: flex; align-items: baseline; gap: 1.1rem;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 1.5rem 1.6rem;
+  border-radius: 16px; padding: 1.4rem 1.6rem 1.5rem;
   box-shadow: var(--shadow-soft);
 }
 .result-card.first { border-color: #c3d2c6; }
-.result-rank {
-  flex-shrink: 0;
-  width: 1.15em; text-align: right;
-  font-family: var(--font-display);
-  font-style: italic; font-weight: 500;
-  font-size: 2.6rem; line-height: 1;
-  color: var(--primary); opacity: .35;
-  user-select: none;
+.result-kicker {
+  display: flex; align-items: center; gap: .55rem;
+  font-size: .72rem; font-weight: 700;
+  letter-spacing: .09em; text-transform: uppercase;
+  color: var(--primary);
+  margin-bottom: .5rem;
 }
-.result-main { min-width: 0; }
+.result-kicker::before {
+  content: "";
+  width: 1.4rem; height: 2px; border-radius: 1px;
+  background: var(--primary); opacity: .45;
+}
 .result-value {
   font-family: var(--font-display);
   font-size: 1.5rem; font-weight: 550; color: var(--primary-deep);
@@ -195,8 +195,7 @@
 }
 .result-meaning { color: var(--muted); }
 @media (max-width: 480px) {
-  .result-card { gap: .85rem; padding: 1.25rem 1.3rem; }
-  .result-rank { font-size: 2.2rem; }
+  .result-card { padding: 1.2rem 1.3rem 1.3rem; }
 }
 .tension-block {
   position: relative;
