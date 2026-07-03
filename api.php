@@ -321,6 +321,19 @@ try {
             jsonSuccess(['saved' => $saved], 'Išsaugota');
         }
 
+        case 'getOpenAiModels': {
+            // POST so a freshly pasted (not yet saved) key never rides in a URL.
+            requireAdminMutation();
+            require_once __DIR__ . '/helpers/openai.php';
+            $in = getJsonInput();
+            $key = trim($in['api_key'] ?? '');
+            if ($key === '' || $key === '••••') $key = getOpenAiKey();
+            if ($key === '') jsonError('API raktas nenustatytas');
+            $res = aiListModels($key);
+            if (!$res['ok']) jsonError('Raktas neveikia: ' . $res['error'], 422);
+            jsonSuccess(['models' => $res['models']]);
+        }
+
         // ── Users (admin only) ────────────────────────────────────────────────
         case 'getUsers': {
             requireAdminSession();

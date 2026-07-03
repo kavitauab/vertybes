@@ -32,7 +32,14 @@ requireAdmin();
     </div>
     <div class="form-row">
       <label>Modelis</label>
-      <input type="text" id="sOpenaiModel">
+      <div style="display:flex;gap:.5rem">
+        <input type="text" id="sOpenaiModel" list="modelList" style="flex:1" autocomplete="off">
+        <button class="btn secondary" id="sFetchModels" type="button" title="Patikrina raktą ir parsiunčia galimų modelių sąrašą">
+          <i class="bi bi-arrow-repeat"></i> Gauti modelius
+        </button>
+      </div>
+      <datalist id="modelList"></datalist>
+      <div class="form-help" id="sModelsNote">Paspausk „Gauti modelius“ — patikrins raktą ir pasiūlys modelius iš tavo OpenAI paskyros.</div>
     </div>
   </div>
   <label class="consent-line" style="margin-top:0">
@@ -82,6 +89,25 @@ async function loadSettings() {
     document.getElementById('sPrivacyVer').value = s.privacy_policy_version || '';
     document.getElementById('sCookieVer').value = s.cookie_policy_version || '';
 }
+
+document.getElementById('sFetchModels').addEventListener('click', async function () {
+    this.disabled = true;
+    const note = document.getElementById('sModelsNote');
+    note.textContent = 'Tikrinama…';
+    // use the freshly pasted key if there is one, otherwise the saved key
+    const d = await apiCall('getOpenAiModels',
+        { api_key: document.getElementById('sOpenaiKey').value.trim() }, 'POST');
+    this.disabled = false;
+    if (!d.success) {
+        note.textContent = d.message || 'Klaida';
+        showToast(d.message || 'Klaida', 'error');
+        return;
+    }
+    document.getElementById('modelList').innerHTML =
+        d.models.map(m => `<option value="${escapeHtml(m)}">`).join('');
+    note.textContent = `Raktas veikia ✓ — rasta ${d.models.length} modelių. Pradėk rašyti lauke, kad pamatytum pasiūlymus.`;
+    showToast('Raktas veikia', 'success');
+});
 
 document.getElementById('sSave').addEventListener('click', async () => {
     const payload = {

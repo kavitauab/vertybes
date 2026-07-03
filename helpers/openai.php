@@ -129,6 +129,46 @@ function aiMapAnswers(array $answers, array $catalog) {
             'duration_ms' => $durationMs, 'mappings' => $mappings];
 }
 
+/**
+ * List models usable for the mapping task. Hits GET /v1/models (free, works
+ * even without credits) — so it doubles as a key validity check.
+ * @return array ['ok' => bool, 'models' => [ids], 'error' => ?string]
+ */
+function aiListModels($apiKey) {
+    $ch = curl_init('https://api.openai.com/v1/models');
+    curl_setopt_array($ch, [
+        CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $apiKey],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_CONNECTTIMEOUT => 10,
+    ]);
+    $body = curl_exec($ch);
+    $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $curlErr = curl_error($ch);
+    curl_close($ch);
+
+    if ($body === false || $status !== 200) {
+        $msg = $curlErr;
+        if (!$msg && $body) {
+            $d = json_decode($body, true);
+            $msg = $d['error']['message'] ?? "HTTP $status";
+        }
+        return ['ok' => false, 'models' => [], 'error' => $msg ?: "HTTP $status"];
+    }
+
+    $data = json_decode($body, true);
+    $models = [];
+    foreach (($data['data'] ?? []) as $m) {
+        $id = $m['id'] ?? '';
+        // text-capable chat/reasoning families only
+        if (!preg_match('/^(gpt-|o\d)/', $id)) continue;
+        if (preg_match('/audio|realtime|tts|whisper|embedding|image|dall-e|moderation|transcribe|search|instruct|codex/', $id)) continue;
+        $models[] = $id;
+    }
+    sort($models);
+    return ['ok' => true, 'models' => $models, 'error' => null];
+}
+
 /** POST JSON with bearer auth; retries on 429/5xx/network errors. */
 function aiHttpPost($url, array $payload, $apiKey, $maxAttempts = 3) {
     $body = json_encode($payload, JSON_UNESCAPED_UNICODE);
