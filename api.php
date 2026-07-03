@@ -107,7 +107,7 @@ function currentTestSession() {
 }
 function requireTestSession() {
     $s = currentTestSession();
-    if (!$s) jsonError('Test session not found', 404);
+    if (!$s) jsonError('Test session not found', 400);
     return $s;
 }
 
@@ -552,7 +552,7 @@ try {
                 if ($res['status'] === 'error') {
                     getLogger()->error('AI mapping failed', ['session' => $session['uuid'],
                         'error' => $res['error'], 'request_id' => $res['request_id']], 'ai');
-                    jsonError(t('common.errorGeneric'), 502);
+                    jsonError(t('common.errorGeneric'), 503);
                 }
 
                 foreach ($answers as $a) {
@@ -644,7 +644,7 @@ try {
             $row = $db->fetchOne(
                 "SELECT * FROM comparisons WHERE session_id = ? AND pair_index = ?",
                 [$session['id'], $pairIndex]);
-            if (!$row) jsonError('Comparison not found', 404);
+            if (!$row) jsonError('Comparison not found', 400);
             if (!in_array($winner, [$row['left_value_key'], $row['right_value_key']], true)) {
                 jsonError('Invalid winner', 422);
             }
@@ -664,7 +664,7 @@ try {
             require_once __DIR__ . '/helpers/testflow.php';
             $session = requireTestSession();
             $r = $db->fetchOne("SELECT * FROM session_results WHERE session_id = ?", [$session['id']]);
-            if (!$r) jsonError('Rezultato dar nėra', 404);
+            if (!$r) jsonError('Rezultato dar nėra', 400);
             $top = json_decode($r['top_keys_json'], true) ?: [];
             jsonSuccess([
                 'top' => tfValueDetails($db, $top),
@@ -684,7 +684,7 @@ try {
                 jsonError(t('common.errorEmail'));
             }
             $r = $db->fetchOne("SELECT * FROM session_results WHERE session_id = ?", [$session['id']]);
-            if (!$r) jsonError('Rezultato dar nėra', 404);
+            if (!$r) jsonError('Rezultato dar nėra', 400);
             $ipHash = hashIp(clientIp());
             if (rateLimited('leads', $ipHash, 10, 60)) jsonError(t('common.errorGeneric'), 429);
 
@@ -726,7 +726,7 @@ try {
         }
 
         default:
-            jsonError('Unknown action: ' . $action, 404);
+            jsonError('Unknown action: ' . $action, 400);
     }
 } catch (Throwable $e) {
     $logger->error('API error', ['action' => $action, 'error' => $e->getMessage(),

@@ -165,7 +165,9 @@ function aiHttpPost($url, array $payload, $apiKey, $maxAttempts = 3) {
             return ['ok' => true, 'body' => $respBody, 'request_id' => $requestId, 'error' => null];
         }
 
-        $retryable = $respBody === false || $status === 429 || $status >= 500;
+        // insufficient_quota is a billing problem — retrying can't help
+        $retryable = ($respBody === false || $status === 429 || $status >= 500)
+                     && strpos((string)$respBody, 'insufficient_quota') === false;
         $lastError = $curlErr ?: "HTTP $status: " . substr((string)$respBody, 0, 500);
         if (!$retryable || $attempt === $maxAttempts) {
             return ['ok' => false, 'body' => (string)$respBody, 'request_id' => $requestId,
