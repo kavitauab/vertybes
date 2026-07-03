@@ -15,6 +15,7 @@
   <div class="shell">
     <div class="brand"><?= htmlspecialchars(getSetting('site_name', 'Vertybių testas')) ?></div>
     <h1 class="hero"><?= te('waitlist.title') ?></h1>
+    <div class="orn" aria-hidden="true">✦</div>
     <p class="sub"><?= te('waitlist.subtitle') ?></p>
     <p class="meta"><?= te('waitlist.meta') ?></p>
 

@@ -65,10 +65,11 @@
     function showIntro() {
         render(`
             <h1 class="hero">${esc(T('intro.title'))}</h1>
+            <div class="orn" aria-hidden="true">✦</div>
             <p class="sub">${esc(T('intro.subtitle'))}</p>
             <p class="meta">${esc(T('intro.meta'))}</p>
             <div style="text-align:center">
-              <button class="btn-p" id="startBtn">${esc(T('intro.cta'))}</button>
+              <button class="btn-p wide" id="startBtn">${esc(T('intro.cta'))}</button>
             </div>`, { noBrand: true });
         document.getElementById('startBtn').onclick = showPrivacy;
     }
@@ -443,12 +444,15 @@
         const cards = top.map((v, i) => `
             <div class="result-card">
               <div class="result-rank">${i + 1}</div>
-              <div class="result-value">${esc(v.label_lt)}</div>
-              <div class="result-meaning">${esc(v.meaning_lt || '')}</div>
+              <div class="result-main">
+                <div class="result-value">${esc(v.label_lt)}</div>
+                <div class="result-meaning">${esc(v.meaning_lt || '')}</div>
+              </div>
             </div>`).join('');
 
         render(`
-            <h1 class="hero" style="font-size:1.7rem">${esc(T('result.title'))}</h1>
+            <h1 class="hero" style="font-size:1.75rem">${esc(T('result.title'))}</h1>
+            <div class="orn" aria-hidden="true">✦</div>
             <div class="result-cards">${cards}</div>
             ${first && first.tension_lt ? `
               <div class="tension-block">

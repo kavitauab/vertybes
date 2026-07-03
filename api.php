@@ -369,17 +369,147 @@ try {
         // ── Dashboard stats ───────────────────────────────────────────────────
         case 'getStats': {
             requireSession();
-            $stats = [
+
+            // Funnel: how many sessions reached each stage (statuses are ordered)
+            $stageOrder = ['created' => 0, 'consented' => 0, 'answering' => 1,
+                           'ai_suggested' => 2, 'comparing' => 3,
+                           'result_ready' => 4, 'email_captured' => 5];
+            $byStatus = [];
+            foreach ($db->fetchAll("SELECT status, COUNT(*) c FROM test_sessions GROUP BY status") as $r) {
+                $byStatus[$r['status']] = (int)$r['c'];
+            }
+            $funnel = [
+                ['label' => 'Pradėjo testą',        'stage' => 0],
+                ['label' => 'Atsakė į klausimus',   'stage' => 1],
+                ['label' => 'Gavo AI vertybes',     'stage' => 2],
+                ['label' => 'Lygino vertybes',      'stage' => 3],
+                ['label' => 'Gavo rezultatą',       'stage' => 4],
+                ['label' => 'Paliko el. paštą',     'stage' => 5],
+            ];
+            foreach ($funnel as &$f) {
+                $n = 0;
+                foreach ($byStatus as $status => $c) {
+                    if (($stageOrder[$status] ?? 0) >= $f['stage']) $n += $c;
+                }
+                $f['count'] = $n;
+                unset($f['stage']);
+            }
+            unset($f);
+
+            // Last 14 days: sessions started + leads collected per day
+            $daily = [];
+            for ($i = 13; $i >= 0; $i--) {
+                $d = date('Y-m-d', strtotime("-$i days"));
+                $daily[$d] = ['d' => $d, 'sessions' => 0, 'leads' => 0];
+            }
+            foreach ($db->fetchAll(
+                "SELECT DATE(created_at) d, COUNT(*) c FROM test_sessions
+                 WHERE created_at > DATE_SUB(CURDATE(), INTERVAL 14 DAY) GROUP BY DATE(created_at)") as $r) {
+                if (isset($daily[$r['d']])) $daily[$r['d']]['sessions'] = (int)$r['c'];
+            }
+            foreach ($db->fetchAll(
+                "SELECT DATE(created_at) d, COUNT(*) c FROM leads
+                 WHERE created_at > DATE_SUB(CURDATE(), INTERVAL 14 DAY) GROUP BY DATE(created_at)") as $r) {
+                if (isset($daily[$r['d']])) $daily[$r['d']]['leads'] = (int)$r['c'];
+            }
+
+            // Most frequent top values across finished tests
+            $counts = [];
+            foreach ($db->fetchAll("SELECT top_keys_json FROM session_results") as $r) {
+                foreach ((json_decode($r['top_keys_json'], true) ?: []) as $k) {
+                    $counts[$k] = ($counts[$k] ?? 0) + 1;
+                }
+            }
+            arsort($counts);
+            $topValues = [];
+            if ($counts) {
+                $keys = array_slice(array_keys($counts), 0, 8);
+                $ph = implode(',', array_fill(0, count($keys), '?'));
+                $labels = array_column($db->fetchAll(
+                    "SELECT value_key, label_lt FROM values_catalog WHERE value_key IN ($ph)", $keys),
+                    'label_lt', 'value_key');
+                foreach ($keys as $k) {
+                    $topValues[] = ['label' => $labels[$k] ?? $k, 'count' => $counts[$k]];
+                }
+            }
+
+            jsonSuccess(['stats' => [
                 'leads_waitlist' => (int)$db->fetchOne("SELECT COUNT(*) c FROM leads WHERE source='waitlist'")['c'],
                 'leads_result'   => (int)$db->fetchOne("SELECT COUNT(*) c FROM leads WHERE source='result'")['c'],
                 'sessions_total' => (int)$db->fetchOne("SELECT COUNT(*) c FROM test_sessions")['c'],
-                'sessions_completed' => (int)$db->fetchOne("SELECT COUNT(*) c FROM test_sessions WHERE status IN ('result_ready','email_captured')")['c'],
-                'leads_7d' => $db->fetchAll(
-                    "SELECT DATE(created_at) d, COUNT(*) c FROM leads
-                     WHERE created_at > DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-                     GROUP BY DATE(created_at) ORDER BY d"),
-            ];
-            jsonSuccess(['stats' => $stats]);
+                'sessions_completed' => ($byStatus['result_ready'] ?? 0) + ($byStatus['email_captured'] ?? 0),
+                'funnel' => $funnel,
+                'daily' => array_values($daily),
+                'top_values' => $topValues,
+                'recent_leads' => $db->fetchAll(
+                    "SELECT email, source, top_values, created_at FROM leads ORDER BY id DESC LIMIT 6"),
+            ]]);
+        }
+
+        case 'getSessionDetail': {
+            requireSession();
+            require_once __DIR__ . '/helpers/testflow.php';
+            $id = (int)($_GET['id'] ?? 0);
+            $s = $db->fetchOne("SELECT * FROM test_sessions WHERE id = ?", [$id]);
+            if (!$s) jsonError('Sesija nerasta', 400);
+
+            $answers = $db->fetchAll(
+                "SELECT a.question_key, a.answer_index, a.answer_text,
+                        q.text AS question_text,
+                        av.suggested_value_key, av.confirmed_value_key, av.confidence, av.source,
+                        sv.label_lt AS suggested_label, cv.label_lt AS confirmed_label
+                 FROM session_answers a
+                 LEFT JOIN questions q ON q.question_key = a.question_key
+                 LEFT JOIN answer_values av ON av.answer_id = a.id
+                 LEFT JOIN values_catalog sv ON sv.value_key = av.suggested_value_key
+                 LEFT JOIN values_catalog cv ON cv.value_key = av.confirmed_value_key
+                 WHERE a.session_id = ? ORDER BY q.sort_order, a.answer_index", [$id]);
+
+            $comparisons = $db->fetchAll(
+                "SELECT c.pair_index, c.is_tiebreak, c.answered_at,
+                        lv.label_lt AS left_label, rv.label_lt AS right_label, wv.label_lt AS winner_label
+                 FROM comparisons c
+                 LEFT JOIN values_catalog lv ON lv.value_key = c.left_value_key
+                 LEFT JOIN values_catalog rv ON rv.value_key = c.right_value_key
+                 LEFT JOIN values_catalog wv ON wv.value_key = c.winner_value_key
+                 WHERE c.session_id = ? ORDER BY c.pair_index", [$id]);
+
+            $result = $db->fetchOne("SELECT * FROM session_results WHERE session_id = ?", [$id]);
+            $resultOut = null;
+            if ($result) {
+                $top = json_decode($result['top_keys_json'], true) ?: [];
+                $resultOut = [
+                    'top' => array_column(tfValueDetails($db, $top), 'label_lt'),
+                    'scores' => json_decode($result['scores_json'], true),
+                    'computed_at' => $result['computed_at'],
+                ];
+            }
+
+            jsonSuccess([
+                'session' => [
+                    'id' => (int)$s['id'], 'uuid' => $s['uuid'], 'status' => $s['status'],
+                    'started_at' => $s['started_at'], 'completed_at' => $s['completed_at'],
+                ],
+                'answers' => $answers,
+                'comparisons' => $comparisons,
+                'result' => $resultOut,
+                'lead' => $db->fetchOne("SELECT email, created_at FROM leads WHERE session_id = ?", [$id]),
+                'consents' => $db->fetchAll(
+                    "SELECT consent_type, accepted, version, created_at FROM session_consents WHERE session_id = ?", [$id]),
+            ]);
+        }
+
+        case 'deleteSession': {
+            requireAdminMutation();
+            $in = getJsonInput();
+            $id = (int)($in['id'] ?? $_GET['id'] ?? 0);
+            $s = $db->fetchOne("SELECT id, uuid FROM test_sessions WHERE id = ?", [$id]);
+            if (!$s) jsonError('Sesija nerasta', 400);
+            // FK cascades remove answers/values/comparisons/results/consents;
+            // leads.session_id is SET NULL so collected emails survive.
+            $db->delete('test_sessions', 'id = ?', [$id]);
+            auditLog('delete_session', 'test_sessions', $id, ['uuid' => $s['uuid']]);
+            jsonSuccess([], 'Sesija ištrinta');
         }
 
         // ── Test sessions browser ─────────────────────────────────────────────

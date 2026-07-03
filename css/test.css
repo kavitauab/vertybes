@@ -60,6 +60,10 @@
 
 .nav-row { display: flex; justify-content: space-between; gap: .75rem; margin-top: 1.75rem; }
 .nav-row .spacer { flex: 1; }
+.nav-row .btn-p { min-width: 8.5rem; }
+@media (max-width: 480px) {
+  .nav-row .btn-p { flex: 1; min-width: 0; }
+}
 
 /* Consent screens */
 .consent-body { color: var(--text); margin-bottom: 1rem; }
@@ -95,10 +99,11 @@
   display: inline-flex; align-items: center; gap: .5rem;
   background: var(--primary-soft); color: var(--primary-deep);
   border: 1.5px solid transparent;
-  padding: .45rem 1rem; border-radius: 24px;
+  min-height: 44px; padding: .45rem 1rem; border-radius: 24px;
   font-weight: 600; font-size: .95rem; cursor: pointer;
   transition: border-color .15s, transform .12s;
   font-family: inherit;
+  max-width: 100%;
 }
 .value-chip:hover { border-color: var(--primary); transform: translateY(-1px); }
 .value-chip.empty { background: var(--error-bg); color: var(--error); }
@@ -115,7 +120,8 @@
 .picker {
   background: var(--surface); border-radius: 18px 18px 0 0;
   width: 100%; max-width: 580px; max-height: 80vh;
-  display: flex; flex-direction: column; padding: 1.25rem;
+  display: flex; flex-direction: column;
+  padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
   animation: rise .25s ease both;
 }
 .picker-search { margin-bottom: .9rem; }
@@ -162,23 +168,28 @@
 /* Result */
 .result-cards { display: flex; flex-direction: column; gap: .9rem; margin: 1.75rem 0; }
 .result-card {
-  position: relative;
+  display: flex; align-items: flex-start; gap: 1.1rem;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding: 1.5rem 1.5rem 1.5rem 4.4rem;
+  border-radius: 16px; padding: 1.4rem 1.5rem;
   box-shadow: var(--shadow-soft);
 }
 .result-rank {
-  position: absolute; left: 1.3rem; top: 1.45rem;
-  width: 2.1rem; height: 2.1rem;
+  flex-shrink: 0;
+  width: 2.3rem; height: 2.3rem;
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%;
   background: var(--primary); color: #fff;
-  font-family: var(--font-display); font-weight: 600; font-size: 1.05rem;
+  font-family: var(--font-display); font-weight: 600; font-size: 1.1rem;
+  /* optically centers the medallion on the serif title's first line */
+  margin-top: .1rem;
 }
+.result-main { min-width: 0; }
 .result-value {
   font-family: var(--font-display);
-  font-size: 1.55rem; font-weight: 550; color: var(--primary-deep);
-  letter-spacing: -.015em; margin-bottom: .35rem;
+  font-size: 1.5rem; font-weight: 550; color: var(--primary-deep);
+  letter-spacing: -.015em; line-height: 1.15;
+  margin-bottom: .35rem;
+  overflow-wrap: break-word;
 }
 .result-meaning { color: var(--muted); }
 .tension-block {

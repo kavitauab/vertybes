@@ -133,6 +133,47 @@ input:focus, textarea:focus, select:focus {
 
 .empty { text-align: center; color: var(--muted); padding: 2.5rem 1rem; font-size: .92rem; }
 
+/* ── Dashboard ───────────────────────────────────────────── */
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; }
+@media (max-width: 1000px) { .dash-grid { grid-template-columns: 1fr; } }
+
+.mini-chart {
+  display: flex; align-items: flex-end; gap: 4px;
+  height: 150px; padding-top: .5rem;
+}
+.mini-chart .col { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100%; }
+.mini-chart .bars {
+  flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2px;
+}
+.mini-chart .bar { width: 46%; max-width: 14px; border-radius: 3px 3px 0 0; min-height: 2px; }
+.bar-sessions { background: var(--primary); }
+.bar-leads { background: #c9a86a; }
+.mini-chart .col-label {
+  font-size: .62rem; color: var(--muted); text-align: center;
+  padding-top: .35rem; overflow: hidden;
+}
+.chart-legend { display: flex; gap: 1.2rem; margin-top: .8rem; font-size: .8rem; color: var(--muted); }
+.chart-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: .35rem; }
+.dot-sessions { background: var(--primary); }
+.dot-leads { background: #c9a86a; }
+
+.funnel-row { display: flex; align-items: center; gap: .8rem; margin-bottom: .55rem; }
+.funnel-label { width: 40%; min-width: 130px; font-size: .85rem; }
+.funnel-track { flex: 1; height: 14px; background: var(--bg); border-radius: 7px; overflow: hidden; }
+.funnel-bar { height: 100%; background: var(--primary); border-radius: 7px; transition: width .4s ease; }
+.funnel-bar.soft { background: var(--primary-soft); border: 1px solid var(--primary); }
+.funnel-num { width: 2.5rem; text-align: right; font-weight: 600; font-size: .88rem; }
+
+/* ── Session detail ──────────────────────────────────────── */
+.modal.modal-lg { max-width: 720px; }
+.row-click { cursor: pointer; }
+.detail-meta { display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: center; margin-bottom: 1.1rem; }
+.detail-block { border-top: 1px solid var(--border); padding-top: .9rem; margin-top: .9rem; }
+.detail-block h4 { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: .55rem; }
+.detail-answer { margin-bottom: .8rem; }
+.detail-duels { display: flex; flex-direction: column; gap: .3rem; font-size: .88rem; }
+.detail-duel.tiebreak { background: var(--error-bg); border-radius: 6px; padding: .2rem .5rem; }
+
 /* ── Toasts ──────────────────────────────────────────────── */
 .toast-container { position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 100; display: flex; flex-direction: column; gap: .5rem; }
 .toast {
