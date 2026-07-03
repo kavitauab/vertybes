@@ -442,7 +442,7 @@
         const top = result.top || [];
         const first = top[0];
         const cards = top.map((v, i) => `
-            <div class="result-card">
+            <div class="result-card${i === 0 ? ' first' : ''}">
               <div class="result-rank">${i + 1}</div>
               <div class="result-main">
                 <div class="result-value">${esc(v.label_lt)}</div>
