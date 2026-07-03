@@ -369,6 +369,20 @@ try {
             jsonSuccess(['stats' => $stats]);
         }
 
+        // ── Test sessions browser ─────────────────────────────────────────────
+        case 'getSessions': {
+            requireSession();
+            $limit = min(200, max(1, (int)($_GET['limit'] ?? 100)));
+            $rows = $db->fetchAll(
+                "SELECT s.id, s.uuid, s.status, s.started_at, s.completed_at,
+                        r.top_keys_json,
+                        (SELECT COUNT(*) FROM session_answers a WHERE a.session_id = s.id) AS answers
+                 FROM test_sessions s
+                 LEFT JOIN session_results r ON r.session_id = s.id
+                 ORDER BY s.id DESC LIMIT $limit");
+            jsonSuccess(['sessions' => $rows]);
+        }
+
         // ════════════════════════════════════════════════════════════════════
         // PUBLIC — waiting list
         // ════════════════════════════════════════════════════════════════════
