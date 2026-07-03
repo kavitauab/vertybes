@@ -30,7 +30,7 @@
         <label class="consent-line">
           <input type="checkbox" id="wlConsent">
           <span><?= str_replace('Privatumo politikoje',
-                    '<a href="privatumas.php" data-policy="privacy">Privatumo politikoje</a>',
+                    '<a href="/privatumas" data-policy="privacy">Privatumo politikoje</a>',
                     te('waitlist.consent')) ?></span>
         </label>
         <div style="margin-top:1.25rem">
@@ -42,8 +42,8 @@
   </div>
 </div>
 <footer class="footer-p">
-  <a href="privatumas.php" data-policy="privacy"><?= te('privacy.page.title') ?></a> ·
-  <a href="slapukai.php" data-policy="cookies"><?= te('cookies.page.title') ?></a>
+  <a href="/privatumas" data-policy="privacy"><?= te('privacy.page.title') ?></a> ·
+  <a href="/slapukai" data-policy="cookies"><?= te('cookies.page.title') ?></a>
 </footer>
 <?php require __DIR__ . '/policy_modals.php'; ?>
 <script>

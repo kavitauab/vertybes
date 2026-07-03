@@ -15,7 +15,7 @@ require_once __DIR__ . '/helpers/app.php';
 </head>
 <body>
 <div class="policy">
-  <a class="back-link" href="index.php">&larr; <?= te('common.back') ?></a>
+  <a class="back-link" href="/">&larr; <?= te('common.back') ?></a>
   <h1><?= te('cookies.page.title') ?></h1>
   <div class="body"><?= nl2br(te('cookies.page.body')) ?></div>
 </div>

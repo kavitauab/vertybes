@@ -1,8 +1,8 @@
 # Vertybių testas — root .htaccess (Apache/LiteSpeed shared hosting)
-# Nginx deployments: replicate these denies in the server block (see README).
+# Nginx deployments: replicate these denies + rewrites in the server block (see README).
 
 # Deny sensitive files
-<FilesMatch "^(\.env|\.env\..*|config\.php|database\.php|auth\.php|logger\.php)$">
+<FilesMatch "^(\.env|\.env\..*|config\.php|database\.php|auth\.php|logger\.php|router\.php)$">
     Require all denied
 </FilesMatch>
 
@@ -14,3 +14,23 @@ Options -Indexes
 
 # UTF-8 default
 AddDefaultCharset utf-8
+
+# ── Clean URLs ───────────────────────────────────────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # /index.php → /
+    RewriteCond %{THE_REQUEST} \s/index\.php[?\s]
+    RewriteRule ^index\.php$ / [R=301,L]
+
+    # /page.php → /page (never api.php — XHR endpoint, a redirect breaks POSTs)
+    RewriteCond %{THE_REQUEST} \s/([a-z0-9_-]+)\.php[?\s]
+    RewriteCond %1 !^(api|index)$
+    RewriteRule ^([a-z0-9_-]+)\.php$ /$1 [R=301,L]
+
+    # /page → page.php (when the file exists)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^([^.]+)$ $1.php [L]
+</IfModule>

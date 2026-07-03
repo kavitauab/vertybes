@@ -19,8 +19,8 @@
   </div>
 </div>
 <footer class="footer-p">
-  <a href="privatumas.php" data-policy="privacy"><?= te('privacy.page.title') ?></a> ·
-  <a href="slapukai.php" data-policy="cookies"><?= te('cookies.page.title') ?></a>
+  <a href="/privatumas" data-policy="privacy"><?= te('privacy.page.title') ?></a> ·
+  <a href="/slapukai" data-policy="cookies"><?= te('cookies.page.title') ?></a>
 </footer>
 <?php require __DIR__ . '/policy_modals.php'; ?>
 <script src="js/test.js?v=<?= assetVersion('js/test.js') ?>"></script>

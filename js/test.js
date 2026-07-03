@@ -79,7 +79,7 @@
               <h1 class="q-title">${esc(T('privacy.title'))}</h1>
               <p class="consent-body">${esc(T('privacy.body'))}</p>
               <p class="consent-note">${esc(T('privacy.confirm'))}
-                 <a href="privatumas.php" data-policy="privacy">${esc(T('privacy.link'))}</a></p>
+                 <a href="/privatumas" data-policy="privacy">${esc(T('privacy.link'))}</a></p>
               <div class="choice-row">
                 <button class="btn-p ghost" id="noBtn">${esc(T('privacy.no'))}</button>
                 <button class="btn-p" id="yesBtn">${esc(T('privacy.yes'))}</button>
@@ -99,7 +99,7 @@
             <div class="card-p">
               <h1 class="q-title">${esc(T('cookies.title'))}</h1>
               <p class="consent-body">${esc(T('cookies.body'))}</p>
-              <p class="consent-note"><a href="slapukai.php" data-policy="cookies">${esc(T('cookies.link'))}</a></p>
+              <p class="consent-note"><a href="/slapukai" data-policy="cookies">${esc(T('cookies.link'))}</a></p>
               <div class="choice-row">
                 <button class="btn-p ghost" id="noBtn">${esc(T('cookies.no'))}</button>
                 <button class="btn-p" id="yesBtn">${esc(T('cookies.yes'))}</button>

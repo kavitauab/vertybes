@@ -137,7 +137,7 @@ function requireAuth() {
     if (!isAuthenticated()) {
         $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '/';
         if (php_sapi_name() !== 'cli' && !headers_sent()) {
-            header('Location: login.php');
+            header('Location: /login');
             exit;
         }
     }
@@ -147,7 +147,7 @@ function requireAdmin() {
     requireAuth();
     if (!isAdmin()) {
         if (php_sapi_name() !== 'cli' && !headers_sent()) {
-            header('Location: dashboard.php');
+            header('Location: /dashboard');
             exit;
         }
     }

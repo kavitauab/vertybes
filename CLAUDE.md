@@ -31,6 +31,8 @@ conventions. Hosting-agnostic (target: Tomas's own shared hosting).
   `up($db)`/`down($db)`; run via `api.php?action=runMigrations&key=…`.
 - Use the `Database` wrapper; no raw PDO. Use `t()`/`te()` for UI texts.
 - Admin frontend: `apiCall()` from `js/utils.js` (CSRF auto-retry).
+- Clean URLs: pages served extensionless (`/dashboard`, `/privatumas`); internal
+  links must NOT use `.php`. `api.php` is the one deliberate exception.
 - Ranking logic only in `helpers/ranking.php` (pure functions);
   tests: `php scripts/test_ranking.php`.
 - AI calls only via `helpers/openai.php`; mock mode (`ai_mock_mode` setting)
@@ -40,7 +42,7 @@ conventions. Hosting-agnostic (target: Tomas's own shared hosting).
 
 ```bash
 brew services start mysql   # db: vertybes / user: vertybes / pass in .env
-php -S 127.0.0.1:8080 -t .
+php -S 127.0.0.1:8080 router.php   # router.php = clean URLs
 curl "http://127.0.0.1:8080/api.php?action=runMigrations&key=dev_admin_key_local"
 php scripts/test_ranking.php
 ```

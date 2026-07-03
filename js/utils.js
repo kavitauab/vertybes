@@ -29,7 +29,7 @@ async function apiCall(action, params = {}, method = 'GET', _retried) {
             opts.body = JSON.stringify(params);
         }
         const res = await fetch(url, opts);
-        if (res.status === 401) { window.location.href = 'login.php'; return { success: false }; }
+        if (res.status === 401) { window.location.href = '/login'; return { success: false }; }
         const d = await res.json();
         if (res.status === 403 && method !== 'GET' && !_retried &&
             d.message && /csrf/i.test(d.message)) {

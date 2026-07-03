@@ -31,7 +31,7 @@ $currentUser = getCurrentUser();
   <h1><?= htmlspecialchars($pageTitle) ?></h1>
   <div class="topbar-user">
     <span><?= htmlspecialchars($currentUser['name'] ?? '') ?></span>
-    <a href="logout.php" title="Atsijungti"><i class="bi bi-box-arrow-right"></i></a>
+    <a href="/logout" title="Atsijungti"><i class="bi bi-box-arrow-right"></i></a>
   </div>
 </header>
 <div class="content">

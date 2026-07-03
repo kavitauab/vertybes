@@ -28,7 +28,7 @@ Local development:
 
 ```bash
 mysql -uroot -e "CREATE DATABASE vertybes CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-php -S 127.0.0.1:8080 -t .
+php -S 127.0.0.1:8080 router.php   # router = clean URLs like production
 curl "http://127.0.0.1:8080/api.php?action=runMigrations&key=$ADMIN_API_KEY"
 ```
 
@@ -79,8 +79,20 @@ test app at the same URL.
 ## Nginx notes
 
 Deny web access to: `.env`, `*.log`, `config.php`, `database.php`, `auth.php`,
-`logger.php`, and the directories `includes/`, `helpers/`, `migrations/`,
-`scripts/`, `seeds/`, `logs/`.
+`logger.php`, `router.php`, and the directories `includes/`, `helpers/`,
+`migrations/`, `scripts/`, `seeds/`, `logs/`.
+
+Clean URLs (`/privatumas`, `/dashboard`, …) need:
+
+```nginx
+# 301 old .php URLs (original client requests only; api.php stays as-is)
+if ($request_uri ~* "^/(login|logout|dashboard|leads|texts|questions|values|sessions|settings|users|privatumas|slapukai)\.php(\?.*)?$") {
+    return 301 /$1$2;
+}
+location / { try_files $uri $uri/ $uri.php$is_args$args; }
+```
+
+Apache hosts get the same behaviour from the shipped `.htaccess`.
 
 ## DO NOT
 

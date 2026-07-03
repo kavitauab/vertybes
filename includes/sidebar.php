@@ -1,15 +1,15 @@
 <?php
 $navItems = [
-    ['dashboard', 'dashboard.php', 'bi-speedometer2', 'Apžvalga'],
-    ['leads',     'leads.php',     'bi-people',       'Kontaktai'],
-    ['texts',     'texts.php',     'bi-fonts',        'Tekstai'],
-    ['questions', 'questions.php', 'bi-patch-question','Klausimai'],
-    ['values',    'values.php',    'bi-heart',        'Vertybės'],
-    ['sessions',  'sessions.php',  'bi-clipboard-data','Testo sesijos'],
+    ['dashboard', '/dashboard', 'bi-speedometer2', 'Apžvalga'],
+    ['leads',     '/leads',     'bi-people',       'Kontaktai'],
+    ['texts',     '/texts',     'bi-fonts',        'Tekstai'],
+    ['questions', '/questions', 'bi-patch-question','Klausimai'],
+    ['values',    '/values',    'bi-heart',        'Vertybės'],
+    ['sessions',  '/sessions',  'bi-clipboard-data','Testo sesijos'],
 ];
 $adminItems = [
-    ['settings',  'settings.php',  'bi-gear',         'Nustatymai'],
-    ['users',     'users.php',     'bi-person-badge', 'Vartotojai'],
+    ['settings',  '/settings',  'bi-gear',         'Nustatymai'],
+    ['users',     '/users',     'bi-person-badge', 'Vartotojai'],
 ];
 ?>
 <aside class="sidebar">
@@ -32,7 +32,7 @@ $adminItems = [
     <?php endforeach; ?>
     <?php endif; ?>
     <div class="nav-sep"></div>
-    <a href="index.php" class="nav-item" target="_blank">
+    <a href="/" class="nav-item" target="_blank">
       <i class="bi bi-box-arrow-up-right"></i><span>Peržiūrėti svetainę</span>
     </a>
   </nav>

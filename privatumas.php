@@ -4,7 +4,7 @@ require_once __DIR__ . '/database.php';
 $db = new Database();
 require_once __DIR__ . '/helpers/app.php';
 
-$back = 'index.php';
+$back = '/';
 ?><!DOCTYPE html>
 <html lang="lt">
 <head>
