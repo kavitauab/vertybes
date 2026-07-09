@@ -52,6 +52,9 @@ require_once __DIR__ . '/includes/head.php';
     <label class="consent-line" style="margin-top:0">
       <input type="checkbox" id="vmActive"> <span>Aktyvi (AI gali ją siūlyti)</span>
     </label>
+    <label class="consent-line" style="margin-top:.4rem">
+      <input type="checkbox" id="vmCore"> <span>Pagrindinė (rodoma pasirinkimo tinklelyje)</span>
+    </label>
     <div class="modal-actions">
       <button class="btn secondary" onclick="closeModal('valModal')">Atšaukti</button>
       <button class="btn" id="vmSave">Išsaugoti</button>
@@ -85,6 +88,8 @@ function renderValues() {
     tb.innerHTML = rows.map(v => `
         <tr>
           <td><strong>${escapeHtml(v.label_lt)}</strong>
+              ${+v.is_core ? ' <span class="badge green">Pagrindinė</span>' : ''}
+              ${+v.is_custom ? ' <span class="badge red">Vartotojo</span>' : ''}
               <div class="form-help">${escapeHtml(v.value_key)}</div></td>
           <td>${escapeHtml(v.meaning_lt || '')}</td>
           <td class="form-help">${escapeHtml(v.synonyms_lt || '')}</td>
@@ -102,6 +107,7 @@ function fillModal(v) {
     document.getElementById('vmTension').value = v ? (v.tension_lt || '') : '';
     document.getElementById('vmSynonyms').value = v ? (v.synonyms_lt || '') : '';
     document.getElementById('vmActive').checked = v ? !!+v.is_active : true;
+    document.getElementById('vmCore').checked = v ? !!+v.is_core : false;
 }
 
 function editValue(id) {
@@ -128,6 +134,7 @@ document.getElementById('vmSave').addEventListener('click', async () => {
         tension_lt: document.getElementById('vmTension').value.trim(),
         synonyms_lt: document.getElementById('vmSynonyms').value.trim(),
         is_active: document.getElementById('vmActive').checked,
+        is_core: document.getElementById('vmCore').checked,
     };
     if (!editingId) payload.value_key = document.getElementById('vmKey').value.trim();
     const d = await apiCall('saveValue', payload, 'POST');

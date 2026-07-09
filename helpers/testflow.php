@@ -14,15 +14,55 @@ function tfUuid() {
 }
 
 function tfActiveQuestions($db) {
-    return $db->fetchAll(
-        "SELECT question_key, text, hint, sort_order, max_answers
+    $rows = $db->fetchAll(
+        "SELECT question_key, text, hint, topic_label, placeholders_json, sort_order, max_answers
          FROM questions WHERE is_active = 1 ORDER BY sort_order, id");
+    foreach ($rows as &$r) {
+        $r['placeholders'] = json_decode($r['placeholders_json'] ?? '[]', true) ?: [];
+        unset($r['placeholders_json']);
+    }
+    return $rows;
 }
 
 function tfActiveCatalog($db) {
     return $db->fetchAll(
-        "SELECT value_key, label_lt, meaning_lt, synonyms_lt
-         FROM values_catalog WHERE is_active = 1 ORDER BY label_lt");
+        "SELECT value_key, label_lt, meaning_lt, synonyms_lt, is_core, is_custom
+         FROM values_catalog WHERE is_active = 1 ORDER BY is_core DESC, label_lt");
+}
+
+/**
+ * Create (or find) a user-entered custom value. Flagged is_custom so the
+ * admin can review them; active immediately so ranking works.
+ */
+function tfAddCustomValue($db, $label) {
+    $label = trim(mb_substr($label, 0, 60));
+    if (mb_strlen($label) < 2) return null;
+    $existing = $db->fetchOne(
+        "SELECT value_key, label_lt, meaning_lt, is_core, is_custom
+         FROM values_catalog WHERE label_lt = ? AND is_active = 1", [$label]);
+    if ($existing) return $existing;
+
+    $map = ['ą'=>'a','č'=>'c','ę'=>'e','ė'=>'e','į'=>'i','š'=>'s','ų'=>'u','ū'=>'u','ž'=>'z',
+            'Ą'=>'a','Č'=>'c','Ę'=>'e','Ė'=>'e','Į'=>'i','Š'=>'s','Ų'=>'u','Ū'=>'u','Ž'=>'z'];
+    $slug = preg_replace('/[^a-z0-9]+/', '_', mb_strtolower(strtr($label, $map)));
+    $slug = trim(preg_replace('/_+/', '_', $slug), '_');
+    if ($slug === '') $slug = 'vertybe';
+    $key = mb_substr($slug, 0, 56);
+    $i = 1;
+    while ($db->fetchOne("SELECT 1 FROM values_catalog WHERE value_key = ?", [$key])) {
+        $key = mb_substr($slug, 0, 52) . '_' . (++$i);
+    }
+    $db->insert('values_catalog', [
+        'value_key' => $key,
+        'label_lt' => $label,
+        'meaning_lt' => '',
+        'is_active' => 1,
+        'is_core' => 0,
+        'is_custom' => 1,
+        'sort_order' => 9999,
+    ]);
+    return ['value_key' => $key, 'label_lt' => $label, 'meaning_lt' => '',
+            'is_core' => 0, 'is_custom' => 1];
 }
 
 /** Answers joined with their question text and current value mapping. */
@@ -162,7 +202,7 @@ function tfValueDetails($db, array $keys) {
     if (!$keys) return [];
     $ph = implode(',', array_fill(0, count($keys), '?'));
     $rows = $db->fetchAll(
-        "SELECT value_key, label_lt, meaning_lt, tension_lt
+        "SELECT value_key, label_lt, meaning_lt, tension_lt, is_custom
          FROM values_catalog WHERE value_key IN ($ph)", $keys);
     $byKey = array_column($rows, null, 'value_key');
     // preserve requested order

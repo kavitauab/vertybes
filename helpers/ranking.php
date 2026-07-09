@@ -14,19 +14,19 @@
  */
 
 /**
- * Pick the top-5 value keys.
+ * Pick the top-N value keys (design: 6 → 15 duels).
  * @param array $items [['key' => string, 'freq' => int, 'conf' => float, 'first' => int], ...]
  *                     one row per DISTINCT value key
- * @return array|null  5 keys, or null when fewer than 5 distinct values exist
+ * @return array|null  N keys, or null when fewer than N distinct values exist
  */
-function rankingTop5(array $items) {
-    if (count($items) < 5) return null;
+function rankingTopN(array $items, $n) {
+    if (count($items) < $n) return null;
     usort($items, function ($a, $b) {
         if ($a['freq'] !== $b['freq']) return $b['freq'] <=> $a['freq'];
         if ($a['conf'] != $b['conf']) return $b['conf'] <=> $a['conf'];
         return $a['first'] <=> $b['first'];
     });
-    return array_column(array_slice($items, 0, 5), 'key');
+    return array_column(array_slice($items, 0, $n), 'key');
 }
 
 /**

@@ -240,9 +240,13 @@ try {
             requireEditorMutation();
             $in = getJsonInput();
             $id = (int)($in['id'] ?? 0);
+            $placeholders = array_values(array_filter(array_map('trim',
+                (array)($in['placeholders'] ?? [])), fn($p) => $p !== ''));
             $data = [
                 'text' => trim($in['text'] ?? ''),
                 'hint' => trim($in['hint'] ?? ''),
+                'topic_label' => trim($in['topic_label'] ?? ''),
+                'placeholders_json' => json_encode($placeholders, JSON_UNESCAPED_UNICODE),
                 'sort_order' => (int)($in['sort_order'] ?? 0),
                 'max_answers' => min(10, max(1, (int)($in['max_answers'] ?? 6))),
                 'is_active' => !empty($in['is_active']) ? 1 : 0,
@@ -276,6 +280,7 @@ try {
                 'tension_lt' => trim($in['tension_lt'] ?? ''),
                 'synonyms_lt' => trim($in['synonyms_lt'] ?? ''),
                 'is_active' => !empty($in['is_active']) ? 1 : 0,
+                'is_core' => !empty($in['is_core']) ? 1 : 0,
             ];
             if ($data['label_lt'] === '') jsonError('Pavadinimas privalomas');
             if ($id) {
@@ -543,6 +548,7 @@ try {
                 $answers = tfSessionAnswers($db, $s['id']);
                 $state = [
                     'status' => $s['status'],
+                    'statements' => json_decode($s['statements_json'] ?? 'null', true),
                     'answers' => array_map(fn($a) => [
                         'id' => (int)$a['id'],
                         'question_key' => $a['question_key'],
@@ -561,7 +567,10 @@ try {
                     $state['result'] = [
                         'top' => tfValueDetails($db, $top),
                         'scores' => json_decode($r['scores_json'], true),
+                        'tension' => $r['tension_text'],
+                        'meaning' => $r['meaning_text'],
                     ];
+                    $state['email_sent'] = $s['status'] === 'email_captured';
                 }
                 $out['session'] = $state;
             }
@@ -614,6 +623,66 @@ try {
                 'samesite' => 'Lax',
             ]);
             jsonSuccess(['session_uuid' => $uuid]);
+        }
+
+        case 'saveQuestionAnswers': {
+            requirePost();
+            require_once __DIR__ . '/helpers/testflow.php';
+            $session = requireTestSession();
+            $in = getJsonInput();
+            $qKey = (string)($in['question_key'] ?? '');
+            $list = $in['answers'] ?? [];
+            $questions = tfActiveQuestions($db);
+            $q = null;
+            foreach ($questions as $row) if ($row['question_key'] === $qKey) $q = $row;
+            if (!$q || !is_array($list)) jsonError('Invalid question', 422);
+
+            $list = array_values(array_filter(array_map(
+                fn($t) => trim(mb_substr((string)$t, 0, 500)), $list), fn($t) => $t !== ''));
+            if (count($list) === 0) jsonError(t('questions.error'), 422);
+            $list = array_slice($list, 0, (int)$q['max_answers']);
+
+            $existing = array_column(array_filter(
+                tfSessionAnswers($db, $session['id']), fn($a) => $a['question_key'] === $qKey),
+                'answer_text');
+            $changed = array_values($existing) !== $list;
+
+            if ($changed) {
+                $db->beginTransaction();
+                try {
+                    // answers changed → any AI mapping/comparisons are stale
+                    tfResetDownstream($db, $session['id']);
+                    $db->update('test_sessions', ['statements_json' => null], 'id = ?', [$session['id']]);
+                    $db->delete('session_answers', 'session_id = ? AND question_key = ?',
+                        [$session['id'], $qKey]);
+                    $rows = [];
+                    foreach ($list as $i => $text) {
+                        $rows[] = [
+                            'session_id' => $session['id'],
+                            'question_key' => $qKey,
+                            'answer_index' => $i,
+                            'answer_text' => $text,
+                        ];
+                    }
+                    $db->batchInsert('session_answers', $rows);
+                    $db->update('test_sessions', ['status' => 'answering'], 'id = ?', [$session['id']]);
+                    $db->commit();
+                } catch (Throwable $e) {
+                    $db->rollback();
+                    throw $e;
+                }
+            }
+            jsonSuccess(['saved' => count($list), 'changed' => $changed]);
+        }
+
+        case 'addCustomValue': {
+            requirePost();
+            require_once __DIR__ . '/helpers/testflow.php';
+            requireTestSession();
+            $in = getJsonInput();
+            $value = tfAddCustomValue($db, (string)($in['label'] ?? ''));
+            if (!$value) jsonError('Per trumpas pavadinimas', 422);
+            jsonSuccess(['value' => $value]);
         }
 
         case 'saveAnswers': {
@@ -748,23 +817,41 @@ try {
             }
 
             $agg = tfConfirmedAggregates($db, $session['id']);
-            $minDistinct = (int)getSetting('min_distinct_values', '5');
-            if (count($agg) < $minDistinct) {
+            $n = max(2, (int)getSetting('compare_values_count', '6'));
+            if (count($agg) < $n) {
                 jsonSuccess([
                     'needs_more_answers' => true,
                     'distinct' => count($agg),
-                    'required' => $minDistinct,
+                    'required' => $n,
                 ]);
             }
 
-            $top5 = rankingTop5($agg);
+            $topKeys = rankingTopN($agg, $n);
+
+            // AI call #2: first-person statements for the duel cards,
+            // grounded in the user's own answers per value
+            require_once __DIR__ . '/helpers/openai.php';
+            $answers = tfSessionAnswers($db, $session['id']);
+            $details = tfValueDetails($db, $topKeys);
+            $byKey = array_column($details, null, 'value_key');
+            $aiInput = [];
+            foreach ($topKeys as $k) {
+                $quotes = array_values(array_map(fn($a) => $a['answer_text'],
+                    array_filter($answers, fn($a) => $a['confirmed_value_key'] === $k)));
+                $aiInput[] = ['value_key' => $k,
+                              'label_lt' => $byKey[$k]['label_lt'] ?? $k,
+                              'answers' => $quotes];
+            }
+            $statements = aiGenerateStatements($aiInput);
+
             $db->beginTransaction();
             try {
                 $db->update('test_sessions', [
-                    'top5_json' => json_encode($top5, JSON_UNESCAPED_UNICODE),
+                    'top5_json' => json_encode($topKeys, JSON_UNESCAPED_UNICODE),
+                    'statements_json' => json_encode($statements, JSON_UNESCAPED_UNICODE),
                     'status' => 'comparing',
                 ], 'id = ?', [$session['id']]);
-                tfCreateComparisons($db, $session['id'], $top5);
+                tfCreateComparisons($db, $session['id'], $topKeys);
                 $db->commit();
             } catch (Throwable $e) {
                 $db->rollback();
@@ -772,7 +859,9 @@ try {
             }
 
             jsonSuccess([
-                'top5' => tfValueDetails($db, $top5),
+                'top' => $details,
+                'statements' => $statements,
+                'quotes' => array_column(array_map(fn($v) => [$v['value_key'], $v['answers']], $aiInput), 1, 0),
                 'comparisons' => tfComparisons($db, $session['id']),
             ]);
         }
@@ -799,6 +888,20 @@ try {
             $state = tfResolveState($db, $session);
             if ($state['state'] === 'final') {
                 $state['top_details'] = tfValueDetails($db, $state['top']);
+                // AI call #3: pair-based tension/meaning copy (once)
+                $r = $db->fetchOne("SELECT * FROM session_results WHERE session_id = ?", [$session['id']]);
+                if ($r && $r['tension_text'] === null) {
+                    require_once __DIR__ . '/helpers/openai.php';
+                    $pair = aiGeneratePairText($state['top_details']);
+                    $db->update('session_results', [
+                        'tension_text' => $pair['tension'],
+                        'meaning_text' => $pair['meaning'],
+                    ], 'session_id = ?', [$session['id']]);
+                    $r['tension_text'] = $pair['tension'];
+                    $r['meaning_text'] = $pair['meaning'];
+                }
+                $state['tension'] = $r['tension_text'] ?? '';
+                $state['meaning'] = $r['meaning_text'] ?? '';
             }
             jsonSuccess(['progress' => $state]);
         }
@@ -812,35 +915,48 @@ try {
             jsonSuccess([
                 'top' => tfValueDetails($db, $top),
                 'scores' => json_decode($r['scores_json'], true),
+                'tension' => $r['tension_text'],
+                'meaning' => $r['meaning_text'],
                 'booking_url' => getSetting('booking_url', ''),
+                'email_sent' => $session['status'] === 'email_captured',
             ]);
         }
 
         case 'saveResultEmail': {
             requirePost();
             require_once __DIR__ . '/helpers/testflow.php';
+            require_once __DIR__ . '/helpers/mailer.php';
             $session = requireTestSession();
             $in = getJsonInput();
-            if (!empty($in['website'])) jsonSuccess([], t('result.emailSaved')); // honeypot
+            if (!empty($in['website'])) jsonSuccess(['sent' => true]); // honeypot
             $email = strtolower(trim($in['email'] ?? ''));
+            if ($email === '') jsonError(t('result.errorEmpty'), 422);
             if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
-                jsonError(t('common.errorEmail'));
+                jsonError(t('result.errorInvalid'), 422);
             }
+            if (empty($in['consent'])) jsonError(t('result.errorConsent'), 422);
             $r = $db->fetchOne("SELECT * FROM session_results WHERE session_id = ?", [$session['id']]);
             if (!$r) jsonError('Rezultato dar nėra', 400);
             $ipHash = hashIp(clientIp());
             if (rateLimited('leads', $ipHash, 10, 60)) jsonError(t('common.errorGeneric'), 429);
 
-            $top = json_decode($r['top_keys_json'], true) ?: [];
-            $labels = implode(', ', array_column(tfValueDetails($db, $top), 'label_lt'));
+            $top = tfValueDetails($db, json_decode($r['top_keys_json'], true) ?: []);
+            $labels = implode(', ', array_column($top, 'label_lt'));
             $db->query(
-                "INSERT INTO leads (email, source, session_id, top_values, ip_hash)
-                 VALUES (?, 'result', ?, ?, ?)
+                "INSERT INTO leads (email, source, session_id, top_values, consented, ip_hash)
+                 VALUES (?, 'result', ?, ?, 1, ?)
                  ON DUPLICATE KEY UPDATE session_id = VALUES(session_id),
-                                         top_values = VALUES(top_values)",
+                                         top_values = VALUES(top_values),
+                                         consented = 1",
                 [$email, $session['id'], $labels, $ipHash]);
+
+            $sent = sendResultEmail($email, $top, $r['tension_text'] ?? '', $r['meaning_text'] ?? '');
+            if (!$sent) {
+                getLogger()->error('Result email failed', ['session' => $session['uuid'],
+                    'email_domain' => substr(strrchr($email, '@'), 1)], 'mail');
+            }
             $db->update('test_sessions', ['status' => 'email_captured'], 'id = ?', [$session['id']]);
-            jsonSuccess([], t('result.emailSaved'));
+            jsonSuccess(['sent' => (bool)$sent]);
         }
 
         // ════════════════════════════════════════════════════════════════════

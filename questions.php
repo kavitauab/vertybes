@@ -31,6 +31,14 @@ require_once __DIR__ . '/includes/head.php';
       <label>Užuomina (rodoma po klausimu)</label>
       <textarea id="qmHint" rows="2"></textarea>
     </div>
+    <div class="form-row">
+      <label>Temos etiketė (rodoma peržiūros ekrane, pvz. „Laisvalaikis“)</label>
+      <input type="text" id="qmTopic">
+    </div>
+    <div class="form-row">
+      <label>Pavyzdžiai laukeliuose (po vieną eilutėje, pvz. „Pvz.: Drąsa“)</label>
+      <textarea id="qmPlaceholders" rows="3"></textarea>
+    </div>
     <div class="form-grid">
       <div class="form-row">
         <label>Maks. atsakymų</label>
@@ -78,6 +86,10 @@ function editQuestion(id) {
     editingId = id;
     document.getElementById('qmText').value = q.text;
     document.getElementById('qmHint').value = q.hint || '';
+    document.getElementById('qmTopic').value = q.topic_label || '';
+    let phs = [];
+    try { phs = JSON.parse(q.placeholders_json || '[]') || []; } catch {}
+    document.getElementById('qmPlaceholders').value = phs.join('\n');
     document.getElementById('qmMax').value = q.max_answers;
     document.getElementById('qmOrder').value = q.sort_order;
     document.getElementById('qmActive').checked = !!+q.is_active;
@@ -89,6 +101,8 @@ document.getElementById('qmSave').addEventListener('click', async () => {
         id: editingId,
         text: document.getElementById('qmText').value.trim(),
         hint: document.getElementById('qmHint').value.trim(),
+        topic_label: document.getElementById('qmTopic').value.trim(),
+        placeholders: document.getElementById('qmPlaceholders').value.split('\n'),
         max_answers: +document.getElementById('qmMax').value,
         sort_order: +document.getElementById('qmOrder').value,
         is_active: document.getElementById('qmActive').checked,

@@ -20,11 +20,11 @@ $items = [
     ['key' => 'e', 'freq' => 1, 'conf' => 0.9, 'first' => 5],
     ['key' => 'f', 'freq' => 1, 'conf' => 0.5, 'first' => 0],
 ];
-check('top5 by frequency', rankingTop5($items) === ['a', 'b', 'c', 'd', 'e']);
+check('top5 by frequency', rankingTopN($items, 5) === ['a', 'b', 'c', 'd', 'e']);
 
 $items2 = $items;
 $items2[3]['conf'] = 0.4; // freq-1 group now sorts e(0.9), f(0.5), d(0.4) → e and f make the cut
-check('freq tie broken by confidence', rankingTop5($items2) === ['a', 'b', 'c', 'e', 'f']);
+check('freq tie broken by confidence', rankingTopN($items2, 5) === ['a', 'b', 'c', 'e', 'f']);
 
 $items3 = [
     ['key' => 'a', 'freq' => 1, 'conf' => 0.5, 'first' => 2],
@@ -33,8 +33,8 @@ $items3 = [
     ['key' => 'd', 'freq' => 1, 'conf' => 0.5, 'first' => 5],
     ['key' => 'e', 'freq' => 1, 'conf' => 0.5, 'first' => 4],
 ];
-check('conf tie broken by first occurrence', rankingTop5($items3) === ['b', 'a', 'c', 'e', 'd']);
-check('fewer than 5 distinct returns null', rankingTop5(array_slice($items3, 0, 4)) === null);
+check('conf tie broken by first occurrence', rankingTopN($items3, 5) === ['b', 'a', 'c', 'e', 'd']);
+check('fewer than 5 distinct returns null', rankingTopN(array_slice($items3, 0, 4), 5) === null);
 
 // ── rankingMakePairs ─────────────────────────────────────────────────────────
 $keys = ['a', 'b', 'c', 'd', 'e'];
@@ -51,6 +51,8 @@ foreach ($pairs as $p) {
     if ($p['left'] === $p['right']) $dupes = true;
 }
 check('pairs unique, no self-pairs', !$dupes && count($seen) === 10);
+$pairs6 = rankingMakePairs(['a', 'b', 'c', 'd', 'e', 'f']);
+check('6 values yield 15 pairs', count($pairs6) === 15);
 
 // ── rankingScores ────────────────────────────────────────────────────────────
 $comps = [

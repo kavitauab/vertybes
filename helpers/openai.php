@@ -130,6 +130,138 @@ function aiMapAnswers(array $answers, array $catalog) {
 }
 
 /**
+ * Generate a short first-person Lithuanian statement for each top value,
+ * grounded in the user's own answers (shown inside the duel cards).
+ *
+ * @param array $values [['value_key','label_lt','answers' => [strings]], ...]
+ * @return array [value_key => statement]  (falls back to the user's own quote)
+ */
+function aiGenerateStatements(array $values) {
+    $fallback = [];
+    foreach ($values as $v) {
+        $fallback[$v['value_key']] = $v['answers']
+            ? mb_substr($v['answers'][0], 0, 120)
+            : ($v['label_lt'] ?? $v['value_key']);
+    }
+
+    if (getSetting('ai_mock_mode', '1') === '1' || getOpenAiKey() === '') {
+        return $fallback;
+    }
+
+    $lines = array_map(fn($v) =>
+        $v['value_key'] . ' (' . $v['label_lt'] . '): ' . implode(' | ', $v['answers']), $values);
+    $payload = [
+        'model' => (string)getSetting('openai_model', 'gpt-5.5'),
+        'store' => false,
+        'input' => [
+            ['role' => 'system', 'content' =>
+                'Tu rašai trumpus, natūralius pirmuoju asmeniu suformuluotus sakinius lietuviškai. '
+                . 'Kiekvienai vertybei sukurk VIENĄ sakinį (iki 14 žodžių), paremtą žmogaus atsakymais — '
+                . 'lyg pats žmogus paaiškintų, kodėl ši vertybė jam svarbi. Be patoso, be kabučių.'],
+            ['role' => 'user', 'content' =>
+                "Vertybės ir žmogaus atsakymai:\n" . implode("\n", $lines)],
+        ],
+        'text' => ['format' => [
+            'type' => 'json_schema', 'name' => 'value_statements', 'strict' => true,
+            'schema' => [
+                'type' => 'object', 'additionalProperties' => false,
+                'properties' => ['statements' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object', 'additionalProperties' => false,
+                        'properties' => [
+                            'value_key' => ['type' => 'string'],
+                            'statement' => ['type' => 'string'],
+                        ],
+                        'required' => ['value_key', 'statement'],
+                    ],
+                ]],
+                'required' => ['statements'],
+            ],
+        ]],
+    ];
+
+    $res = aiHttpPost('https://api.openai.com/v1/responses', $payload, getOpenAiKey());
+    if (!$res['ok']) return $fallback;
+    $parsed = aiExtractStructured($res['body']);
+    if (!is_array($parsed) || empty($parsed['statements'])) return $fallback;
+
+    $out = $fallback;
+    foreach ($parsed['statements'] as $s) {
+        $k = $s['value_key'] ?? '';
+        if (isset($out[$k]) && trim($s['statement'] ?? '') !== '') {
+            $out[$k] = trim($s['statement']);
+        }
+    }
+    return $out;
+}
+
+/**
+ * Generate the result screen's pair copy: "Galima vidinė įtampa" and
+ * "Ką tai reiškia" about the top values together (per the design).
+ *
+ * @param array $top rows from values_catalog (label_lt, meaning_lt, tension_lt)
+ * @return array ['tension' => string, 'meaning' => string]
+ */
+function aiGeneratePairText(array $top) {
+    $fallback = [
+        'tension' => $top[0]['tension_lt'] ?: '',
+        'meaning' => trim(implode(' ', array_filter(array_map(
+            fn($v) => $v['meaning_lt'] ? rtrim($v['meaning_lt'], '.') . '.' : '', $top)))),
+    ];
+
+    if (getSetting('ai_mock_mode', '1') === '1' || getOpenAiKey() === '') {
+        return $fallback;
+    }
+
+    $names = implode(' ir ', array_map(fn($v) => mb_strtoupper($v['label_lt']), $top));
+    $detail = implode("\n", array_map(fn($v) =>
+        mb_strtoupper($v['label_lt']) . ': ' . $v['meaning_lt'] . ' Vidinė įtampa: ' . $v['tension_lt'], $top));
+    $payload = [
+        'model' => (string)getSetting('openai_model', 'gpt-5.5'),
+        'store' => false,
+        'input' => [
+            ['role' => 'system', 'content' =>
+                'Rašai lietuviškai, šiltai ir konkrečiai, kreipiniu „tu“. Jokio patoso. '
+                . 'Pagal dvi (ar daugiau) stipriausias žmogaus vertybes parašyk: '
+                . '1) "tension" — 2–3 sakinius apie galimą vidinę įtampą TARP šių vertybių '
+                . '(pvz.: „X ir Y gali tempti į skirtingas puses: ...“); '
+                . '2) "meaning" — 2–3 sakinius, ką šios vertybės kartu reiškia žmogaus sprendimams.'],
+            ['role' => 'user', 'content' => "Stipriausios vertybės: $names\n\n$detail"],
+        ],
+        'text' => ['format' => [
+            'type' => 'json_schema', 'name' => 'pair_text', 'strict' => true,
+            'schema' => [
+                'type' => 'object', 'additionalProperties' => false,
+                'properties' => [
+                    'tension' => ['type' => 'string'],
+                    'meaning' => ['type' => 'string'],
+                ],
+                'required' => ['tension', 'meaning'],
+            ],
+        ]],
+    ];
+
+    $res = aiHttpPost('https://api.openai.com/v1/responses', $payload, getOpenAiKey());
+    if (!$res['ok']) return $fallback;
+    $parsed = aiExtractStructured($res['body']);
+    if (!is_array($parsed) || trim($parsed['tension'] ?? '') === '') return $fallback;
+    return ['tension' => trim($parsed['tension']), 'meaning' => trim($parsed['meaning'] ?? $fallback['meaning'])];
+}
+
+/** Pull the structured-output JSON out of a Responses API body. */
+function aiExtractStructured($body) {
+    $data = json_decode($body, true);
+    foreach (($data['output'] ?? []) as $item) {
+        if (($item['type'] ?? '') !== 'message') continue;
+        foreach (($item['content'] ?? []) as $c) {
+            if (($c['type'] ?? '') === 'output_text') return json_decode($c['text'], true);
+        }
+    }
+    return null;
+}
+
+/**
  * List models usable for the mapping task. Hits GET /v1/models (free, works
  * even without credits) — so it doubles as a key validity check.
  * @return array ['ok' => bool, 'models' => [ids], 'error' => ?string]
