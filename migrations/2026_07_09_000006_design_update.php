@@ -59,11 +59,10 @@ class DesignUpdateMigration {
         }
 
         // ── Core picker values (design's "Pagrindinės vertybės" grid) ─────────
-        $coreKeys = ['laisve','augimas','saziningumas','artumas','pagarba','drasa',
-                     'atsakomybe','kuryba','ramybe','autentiskumas','disciplina',
-                     'nuotykis','nuotykiai','stabilumas','sveikata','itaka',
-                     'galia_ir_vadovavimas','kompetencija','istikimybe','tiesa',
-                     'prasmingumas','prasme'];
+        $coreKeys = ['laisve','augimas','saziningumas_ir_vientisumas','artumas','pagarba',
+                     'drasa','atsakomybe','kurybiskumas','ramybe','autentiskumas',
+                     'saviugda','nuotykis','stabilumas','sveikata','itaka',
+                     'kompetencija','istikimybe','tiesa','prasmingumas'];
         $ph = implode(',', array_fill(0, count($coreKeys), '?'));
         $db->query("UPDATE values_catalog SET is_core = 1 WHERE value_key IN ($ph)", $coreKeys);
 
