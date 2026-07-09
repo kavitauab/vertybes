@@ -580,18 +580,14 @@
             card.onclick = function () {
                 app.querySelectorAll('.duel-card-p').forEach(function (x) { x.disabled = true; });
                 card.classList.add('chosen');
-                api('saveComparison', {
+                var req = api('saveComparison', {
                     pair_index: c.pair_index,
                     winner_value_key: card.dataset.key,
                 }).then(function (d) {
-                    if (!d.success) {
-                        card.classList.remove('chosen');
-                        app.querySelectorAll('.duel-card-p').forEach(function (x) { x.disabled = false; });
-                        return;
-                    }
-                    c.winner_value_key = card.dataset.key;
-                    setTimeout(function () { handleProgress(d.progress); }, 350);
+                    if (d && d.success) c.winner_value_key = card.dataset.key;
+                    return d;
                 });
+                afterChoice(c, req);
             };
         });
     }
@@ -615,18 +611,47 @@
         app.querySelectorAll('.tb-card .btn-p').forEach(function (btn) {
             btn.onclick = function () {
                 app.querySelectorAll('.tb-card .btn-p').forEach(function (x) { x.disabled = true; });
-                api('saveComparison', {
+                var req = api('saveComparison', {
                     pair_index: c.pair_index,
                     winner_value_key: btn.dataset.key,
                 }).then(function (d) {
-                    if (!d.success) {
-                        app.querySelectorAll('.tb-card .btn-p').forEach(function (x) { x.disabled = false; });
-                        return;
-                    }
-                    c.winner_value_key = btn.dataset.key;
-                    handleProgress(d.progress);
+                    if (d && d.success) c.winner_value_key = btn.dataset.key;
+                    return d;
                 });
+                afterChoice(c, req);
             };
+        });
+    }
+
+    function showResultLoading() {
+        render(
+            '<div class="ai-screen">' +
+            '<div class="ai-mark"><div class="arc"></div><div class="leaf">' + I.leaf + '</div></div>' +
+            '<h1 class="h-display h-screen h-center">' + esc(T('loading.result.title')) + '</h1>' +
+            '<div class="ai-dash"></div>' +
+            '<p class="sub-p sub-center">' + esc(T('loading.result.sub')) + '</p>' +
+            '<div class="ai-chip"><span class="pulse"></span>' + esc(T('loading.result.chip')) + '</div>' +
+            '</div>'
+        );
+    }
+
+    /**
+     * Show the chosen state briefly; if this was the last open duel the server
+     * also generates the result texts (a few seconds) — switch to a loading
+     * screen instead of appearing stuck.
+     */
+    function afterChoice(c, request) {
+        var othersOpen = S.comparisons.some(function (x) {
+            return x !== c && !x.winner_value_key;
+        });
+        var settled = false;
+        if (!othersOpen) {
+            setTimeout(function () { if (!settled) showResultLoading(); }, 400);
+        }
+        request.then(function (d) {
+            settled = true;
+            if (!d || !d.success) { showDuel(c.pair_index); return; }
+            setTimeout(function () { handleProgress(d.progress); }, othersOpen ? 350 : 0);
         });
     }
 
