@@ -701,7 +701,6 @@
               '<input type="checkbox" id="consentEmail"><span>' + esc(T('result.emailConsent')) + '</span></label>' +
               '<div class="field-error" id="consentError">' + I.info + '<span>' + esc(T('result.errorConsent')) + '</span></div>' +
               '<button class="btn-p upper" id="sendBtn">' + esc(T('result.emailSend')) + '</button>' +
-              '<a class="privacy-link" href="/privatumas" data-policy="privacy">' + esc(T('result.privacyLink')) + '</a>' +
               '</div>';
 
         render(
