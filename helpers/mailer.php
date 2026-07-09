@@ -29,7 +29,7 @@ function sendResultEmail($to, array $top, $tension, $meaning) {
         $valueBlocks .= '
         <div style="background:#ffffff;border:1px solid #e4dccb;border-top:4px solid #496E50;border-radius:12px;padding:20px 24px;margin-bottom:12px;">
           <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#8a8f88;margin-bottom:6px;">' . $e($rank) . '</div>
-          <div style="font-family:Georgia,serif;font-size:24px;color:#1A2E1D;font-weight:bold;">' . ($i + 1) . '. ' . $e(mb_strtoupper($v['label_lt'])) . '</div>
+          <div style="font-family:Georgia,serif;font-size:24px;color:#1A2E1D;font-weight:bold;">' . $e(mb_strtoupper($v['label_lt'])) . '</div>
         </div>';
     }
 

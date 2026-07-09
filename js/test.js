@@ -684,7 +684,7 @@
         var cards = r.top.map(function (v, i) {
             return '<div class="result-value-card">' +
                 '<div class="rv-kicker">' + esc(T('result.rank' + (i + 1))) + '</div>' +
-                '<div class="rv-name">' + (i + 1) + '. ' + esc(upper(v.label_lt)) + '</div>' +
+                '<div class="rv-name">' + esc(upper(v.label_lt)) + '</div>' +
                 '</div>';
         }).join('');
 
