@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<!-- Vertybės LT — rezultato laiško šablonas MailerLite automatizacijai.
+     Naudojimas: MailerLite → Automations → „Simple welcome email" → Edit email →
+     Content → įterpk „Custom HTML" bloką ir įklijuok VISKĄ, kas yra tarp
+     <body> ... </body>. Kintamieji {$value_1}, {$value_2}, {$meaning_text},
+     {$tension_text} užsipildo automatiškai iš prenumeratoriaus laukų.
+     MailerLite pats prideda unsubscribe/adreso poraštę — jos čia nereikia. -->
+<html lang="lt">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#F7EFDC;">
+<div style="max-width:560px;margin:0 auto;padding:28px 18px;font-family:Helvetica,Arial,sans-serif;color:#40201A;">
+
+  <!-- Brand header -->
+  <div style="text-align:center;margin-bottom:26px;">
+    <img src="https://vertybes.gentrula.lt/assets/favicon-192.png" width="40" height="40" alt="Vertybės LT" style="display:inline-block;border-radius:8px;">
+    <div style="font-size:16px;font-weight:bold;margin-top:8px;">Vertybės LT</div>
+  </div>
+
+  <h1 style="font-size:24px;font-weight:500;margin:0 0 6px;color:#40201A;">Štai kas tave veda</h1>
+  <p style="margin:0 0 20px;color:#A0553D;font-size:15px;">Šios dvi vertybės šiuo metu stipriausiai veda tavo sprendimus.</p>
+
+  <!-- Nr. 1 (dominant, same hierarchy as the result screen) -->
+  <div style="background:#D9432C;border-radius:16px;padding:22px 24px;margin-bottom:12px;">
+    <div style="color:#F7EFDC;opacity:.85;font-size:13px;margin-bottom:6px;">Tavo Nr. 1</div>
+    <div style="color:#F7EFDC;font-size:34px;font-weight:500;letter-spacing:.5px;">{$value_1}</div>
+  </div>
+
+  <!-- Nr. 2 (quieter, never equal) -->
+  <div style="background:#FFFFFF;border:1px solid #F2C4AE;border-radius:14px;padding:16px 22px;margin-bottom:12px;">
+    <div style="color:#A0553D;font-size:13px;margin-bottom:4px;">Kita stipri vertybė</div>
+    <div style="color:#40201A;font-size:22px;font-weight:500;">{$value_2}</div>
+  </div>
+
+  <!-- Interpretation -->
+  <div style="background:#FFFFFF;border:1px solid #F2C4AE;border-radius:14px;padding:18px 22px;margin-bottom:12px;">
+    <div style="font-weight:500;font-size:15px;margin-bottom:6px;">Ką tai reiškia</div>
+    <div style="color:#A0553D;font-size:14px;line-height:1.6;">{$meaning_text}</div>
+  </div>
+
+  <!-- Tension -->
+  <div style="background:#FFFFFF;border:1px solid #F2C4AE;border-radius:14px;padding:18px 22px;margin-bottom:20px;">
+    <div style="font-weight:500;font-size:15px;margin-bottom:6px;">Galima vidinė įtampa</div>
+    <div style="color:#A0553D;font-size:14px;line-height:1.6;">{$tension_text}</div>
+  </div>
+
+  <!-- One reflection question -->
+  <div style="background:#F6E9DC;border:1px solid #F2C4AE;border-radius:14px;padding:18px 22px;margin-bottom:26px;">
+    <div style="font-size:14px;line-height:1.6;color:#40201A;">
+      Klausimas apmąstymui: kurioje šios savaitės situacijoje
+      <strong>{$value_1}</strong> ir <strong>{$value_2}</strong> traukė tave į skirtingas puses?
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div style="text-align:center;margin-bottom:8px;">
+    <a href="https://vertybes.gentrula.lt/" style="display:inline-block;background:#D9432C;color:#F7EFDC;text-decoration:none;padding:14px 34px;border-radius:12px;font-weight:500;font-size:15px;">Kitas žingsnis</a>
+  </div>
+  <p style="text-align:center;color:#A0553D;font-size:13px;margin:0 0 8px;">Vertybės yra tik pradžia.</p>
+  <p style="text-align:center;color:#A0553D;font-size:12px;margin:0;">Prie šio rezultato verta sugrįžti.</p>
+
+</div>
+</body>
+</html>

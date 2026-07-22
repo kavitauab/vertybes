@@ -49,7 +49,7 @@ function mlRequest($method, $path, $payload = null) {
  * Upsert the subscriber with custom fields; marketing group only on opt-in.
  * @return array ['ok' => bool, 'subscriber_id' => ?string, 'invalid_email' => bool]
  */
-function mlSubscribeLead($email, $value1, $value2, $leadSource, $referralCode, $consentVersion, $marketingOptIn) {
+function mlSubscribeLead($email, $value1, $value2, $leadSource, $referralCode, $consentVersion, $marketingOptIn, $meaning = '', $tension = '') {
     $groups = array_values(array_filter([
         (string)getSetting('ml_group_test', ''),
         $marketingOptIn ? (string)getSetting('ml_group_marketing', '') : '',
@@ -65,6 +65,9 @@ function mlSubscribeLead($email, $value1, $value2, $leadSource, $referralCode, $
             'lead_source' => (string)$leadSource,   // "source" is reserved in MailerLite
             'referral_code' => (string)$referralCode,
             'consent_version' => (string)$consentVersion,
+            // ML text fields cap at 255 chars — trim, the email shows these
+            'meaning_text' => mb_substr((string)$meaning, 0, 255),
+            'tension_text' => mb_substr((string)$tension, 0, 255),
         ],
         'groups' => $groups,
     ]);
@@ -81,9 +84,14 @@ function mlRetryPending($db, $limit = 25) {
         "SELECT * FROM leads WHERE ml_pending = 1 AND source = 'result' ORDER BY id LIMIT " . (int)$limit);
     $fixed = 0;
     foreach ($rows as $lead) {
+        $texts = $lead['session_id']
+            ? $db->fetchOne("SELECT meaning_text, tension_text FROM session_results WHERE session_id = ?",
+                [$lead['session_id']])
+            : null;
         $r = mlSubscribeLead($lead['email'], $lead['value_1'], $lead['value_2'],
             $lead['lead_source'], $lead['referral_code'], $lead['consent_version'],
-            (bool)$lead['marketing_opt_in']);
+            (bool)$lead['marketing_opt_in'],
+            $texts['meaning_text'] ?? '', $texts['tension_text'] ?? '');
         if ($r['ok']) {
             $db->update('leads', [
                 'ml_pending' => 0,

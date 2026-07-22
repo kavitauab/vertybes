@@ -887,7 +887,8 @@ try {
                  $leadSource ?: null, $referral ?: null, $refVerified, $marketing ? 1 : 0,
                  $consentVersion, $ipHash]);
 
-            $ml = mlSubscribeLead($email, $value1, $value2, $leadSource, $referral, $consentVersion, $marketing);
+            $ml = mlSubscribeLead($email, $value1, $value2, $leadSource, $referral, $consentVersion, $marketing,
+                $r['meaning_text'] ?? '', $r['tension_text'] ?? '');
             if ($ml['ok']) {
                 $db->query(
                     "UPDATE leads SET ml_pending = 0, mailerlite_subscriber_id = ? WHERE email = ? AND source = 'result'",
