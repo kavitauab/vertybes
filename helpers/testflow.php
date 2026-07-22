@@ -30,6 +30,82 @@ function tfActiveCatalog($db) {
          FROM values_catalog WHERE is_active = 1 ORDER BY is_core DESC, label_lt");
 }
 
+/** Active dictionary [value_key => label_lt] (the FINAL 32-value list). */
+function tfDict($db) {
+    $rows = $db->fetchAll(
+        "SELECT value_key, label_lt FROM values_catalog WHERE is_active = 1 ORDER BY sort_order, id");
+    return array_column($rows, 'label_lt', 'value_key');
+}
+
+/**
+ * Persist an analysis run: replace candidates, mark all as selected (the AI
+ * already applied the 3–5 selection rules), create every unique duel pair,
+ * advance the session to 'comparing'.
+ */
+function tfStoreAnalysis($db, $sessionId, array $values) {
+    $db->beginTransaction();
+    try {
+        $db->delete('session_value_candidates', 'session_id = ?', [$sessionId]);
+        $db->delete('comparisons', 'session_id = ?', [$sessionId]);
+        $db->delete('session_results', 'session_id = ?', [$sessionId]);
+        $rows = [];
+        foreach ($values as $i => $v) {
+            $rows[] = [
+                'session_id' => $sessionId,
+                'value_key' => $v['value_key'],
+                'label_lt' => $v['label'],
+                'confidence' => $v['confidence'],
+                'mentions_json' => json_encode($v['mentions'], JSON_UNESCAPED_UNICODE),
+                'evidence_json' => json_encode($v['evidence'], JSON_UNESCAPED_UNICODE),
+                'sort_index' => $i,
+                'selected' => 1,
+            ];
+        }
+        $db->batchInsert('session_value_candidates', $rows);
+        $keys = array_column($values, 'value_key');
+        $db->update('test_sessions', [
+            'top5_json' => json_encode($keys, JSON_UNESCAPED_UNICODE),
+            'status' => 'comparing',
+            'completed_at' => null,
+        ], 'id = ?', [$sessionId]);
+        tfCreateComparisons($db, $sessionId, $keys);
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollback();
+        throw $e;
+    }
+}
+
+/** Selected candidates with decoded mentions/evidence, in selection order. */
+function tfCandidates($db, $sessionId) {
+    $rows = $db->fetchAll(
+        "SELECT value_key, label_lt, confidence, mentions_json, evidence_json, sort_index
+         FROM session_value_candidates WHERE session_id = ? AND selected = 1
+         ORDER BY sort_index", [$sessionId]);
+    foreach ($rows as &$r) {
+        $r['mentions'] = json_decode($r['mentions_json'] ?? '[]', true) ?: [];
+        $r['evidence'] = json_decode($r['evidence_json'] ?? '[]', true) ?: [];
+        unset($r['mentions_json'], $r['evidence_json']);
+    }
+    return $rows;
+}
+
+/** Cached pair interpretation — the same pair always gets the same text. */
+function tfPairText($db, array $topDetails) {
+    require_once __DIR__ . '/openai.php';
+    $keys = array_map(fn($v) => $v['value_key'], array_slice($topDetails, 0, 2));
+    sort($keys);
+    $pairKey = implode('|', $keys);
+    $cached = $db->fetchOne("SELECT tension_text, meaning_text FROM pair_texts WHERE pair_key = ?", [$pairKey]);
+    if ($cached) return ['tension' => $cached['tension_text'], 'meaning' => $cached['meaning_text']];
+    $pair = aiGeneratePairText($topDetails);
+    $db->query(
+        "INSERT INTO pair_texts (pair_key, tension_text, meaning_text) VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE pair_key = pair_key",
+        [$pairKey, $pair['tension'], $pair['meaning']]);
+    return $pair;
+}
+
 /**
  * Create (or find) a user-entered custom value. Flagged is_custom so the
  * admin can review them; active immediately so ranking works.
@@ -155,6 +231,14 @@ function tfResolveState($db, array $session) {
 
     $scores = rankingScores($comps, $top5);
 
+    // Silent tie inputs: original evidence frequency + selection order
+    $freq = [];
+    $order = [];
+    foreach (tfCandidates($db, $sessionId) as $c) {
+        $freq[$c['value_key']] = count($c['evidence']);
+        $order[$c['value_key']] = (int)$c['sort_index'];
+    }
+
     $tbRow = null;
     foreach ($comps as $c) {
         if ($c['is_tiebreak']) $tbRow = $c;
@@ -164,7 +248,7 @@ function tfResolveState($db, array $session) {
            'winner' => $tbRow['winner_value_key']]
         : null;
 
-    $res = rankingResolve($scores, $tiebreak);
+    $res = rankingResolve($scores, $freq, $order, $tiebreak);
 
     if ($res['status'] === 'tiebreak') {
         if (!$tbRow) {

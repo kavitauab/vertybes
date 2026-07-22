@@ -4,3 +4,9 @@ data/
 *.log
 .DS_Store
 node_modules/
+
+# Design/handoff source folders (not deployed)
+Vertybiu testas/
+Lithuanian values-test prototype*/
+*.zip
+*.docx

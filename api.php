@@ -153,12 +153,25 @@ try {
             requireAdminKey();
             $allowed = ['users','settings','ui_texts','questions','values_catalog',
                         'test_sessions','session_consents','session_answers','ai_suggestions',
-                        'answer_values','comparisons','session_results','leads','audit_log','migrations'];
+                        'answer_values','comparisons','session_results','leads','audit_log','migrations',
+                        'coaches','session_value_candidates','pair_texts'];
             $t = $_GET['table'] ?? '';
             if (!in_array($t, $allowed, true)) jsonError('Invalid table', 400);
             $limit = min(500, max(1, (int)($_GET['limit'] ?? 50)));
             $rows = $db->fetchAll("SELECT * FROM `$t` ORDER BY id DESC LIMIT $limit");
             jsonSuccess(['table' => $t, 'count' => count($rows), 'rows' => $rows]);
+        }
+
+        case 'mlRetryPending': {
+            requireAdminKey();
+            require_once __DIR__ . '/helpers/mailerlite.php';
+            [$tried, $fixed] = mlRetryPending($db);
+            jsonSuccess(['tried' => $tried, 'fixed' => $fixed]);
+        }
+        case 'mlCleanupUnsubscribed': {
+            requireAdminKey();
+            require_once __DIR__ . '/helpers/mailerlite.php';
+            jsonSuccess(['anonymized' => mlCleanupUnsubscribed($db)]);
         }
 
         // ════════════════════════════════════════════════════════════════════
@@ -539,8 +552,12 @@ try {
             $out = [
                 'texts' => getUiTexts(),
                 'questions' => tfActiveQuestions($db),
-                'catalog' => tfActiveCatalog($db),
-                'booking_url' => getSetting('booking_url', ''),
+                'links' => [
+                    'vision' => getSetting('vision_url', 'https://vision.lt'),
+                    'session' => getSetting('vision_session_url', ''),
+                    'facebook' => getSetting('facebook_url', ''),
+                ],
+                'consent_version' => getSetting('consent_version', 'v1'),
                 'session' => null,
             ];
             $s = currentTestSession();
@@ -548,7 +565,7 @@ try {
                 $answers = tfSessionAnswers($db, $s['id']);
                 $state = [
                     'status' => $s['status'],
-                    'statements' => json_decode($s['statements_json'] ?? 'null', true),
+                    'candidates' => tfCandidates($db, $s['id']),
                     'answers' => array_map(fn($a) => [
                         'id' => (int)$a['id'],
                         'question_key' => $a['question_key'],
@@ -595,15 +612,21 @@ try {
 
             $uuid = tfUuid();
             $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255);
+            // Attribution: client value (localStorage, first touch) falls back
+            // to the 90-day first-party cookies set by index.php
+            $leadSource = substr(trim((string)($in['source'] ?? ($_COOKIE['vt_src'] ?? ''))), 0, 60);
+            $referral = substr(trim((string)($in['referral_code'] ?? ($_COOKIE['vt_ref'] ?? ''))), 0, 60);
             $sessionId = $db->insert('test_sessions', [
                 'uuid' => $uuid,
                 'status' => 'consented',
                 'ip_hash' => $ipHash,
                 'user_agent' => $ua,
+                'lead_source' => $leadSource !== '' ? $leadSource : null,
+                'referral_code' => $referral !== '' ? $referral : null,
             ]);
             foreach ([
-                ['privacy_ai', getSetting('privacy_policy_version', '')],
-                ['cookies', getSetting('cookie_policy_version', '')],
+                ['privacy_ai', getSetting('consent_version', 'v1')],
+                ['cookies', getSetting('consent_version', 'v1')],
             ] as [$type, $version]) {
                 $db->insert('session_consents', [
                     'session_id' => $sessionId,
@@ -621,6 +644,39 @@ try {
                 'secure' => $secure,
                 'httponly' => true,
                 'samesite' => 'Lax',
+            ]);
+            jsonSuccess(['session_uuid' => $uuid]);
+        }
+
+        case 'restartTest': {
+            // "Pradėk iš naujo" / "Atlikti testą dar kartą" — fresh session,
+            // consents re-recorded from the standing consent_given choice
+            requirePost();
+            require_once __DIR__ . '/helpers/testflow.php';
+            $old = currentTestSession();
+            $ipHash = hashIp(clientIp());
+            $uuid = tfUuid();
+            $sessionId = $db->insert('test_sessions', [
+                'uuid' => $uuid,
+                'status' => 'consented',
+                'ip_hash' => $ipHash,
+                'user_agent' => substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255),
+                'lead_source' => $old['lead_source'] ?? ($_COOKIE['vt_src'] ?? null),
+                'referral_code' => $old['referral_code'] ?? ($_COOKIE['vt_ref'] ?? null),
+            ]);
+            foreach (['privacy_ai', 'cookies'] as $type) {
+                $db->insert('session_consents', [
+                    'session_id' => $sessionId,
+                    'consent_type' => $type,
+                    'accepted' => 1,
+                    'version' => getSetting('consent_version', 'v1'),
+                    'ip_hash' => $ipHash,
+                ]);
+            }
+            $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+            setcookie('vt_session', $uuid, [
+                'expires' => time() + 60 * 60 * 24 * 30,
+                'path' => '/', 'secure' => $secure, 'httponly' => true, 'samesite' => 'Lax',
             ]);
             jsonSuccess(['session_uuid' => $uuid]);
         }
@@ -675,193 +731,57 @@ try {
             jsonSuccess(['saved' => count($list), 'changed' => $changed]);
         }
 
-        case 'addCustomValue': {
-            requirePost();
-            require_once __DIR__ . '/helpers/testflow.php';
-            requireTestSession();
-            $in = getJsonInput();
-            $value = tfAddCustomValue($db, (string)($in['label'] ?? ''));
-            if (!$value) jsonError('Per trumpas pavadinimas', 422);
-            jsonSuccess(['value' => $value]);
-        }
-
-        case 'saveAnswers': {
-            requirePost();
-            require_once __DIR__ . '/helpers/testflow.php';
-            $session = requireTestSession();
-            $in = getJsonInput();
-            $byQuestion = $in['answers'] ?? [];
-            if (!is_array($byQuestion)) jsonError('answers required');
-
-            $questions = tfActiveQuestions($db);
-            $rows = [];
-            foreach ($questions as $q) {
-                $list = $byQuestion[$q['question_key']] ?? [];
-                if (!is_array($list)) $list = [];
-                $list = array_values(array_filter(array_map(
-                    fn($t) => trim(mb_substr((string)$t, 0, 500)), $list), fn($t) => $t !== ''));
-                if (count($list) === 0) {
-                    jsonError('Atsakyk į visus klausimus.', 422);
-                }
-                if (count($list) > (int)$q['max_answers']) {
-                    $list = array_slice($list, 0, (int)$q['max_answers']);
-                }
-                foreach ($list as $i => $text) {
-                    $rows[] = [
-                        'session_id' => $session['id'],
-                        'question_key' => $q['question_key'],
-                        'answer_index' => $i,
-                        'answer_text' => $text,
-                    ];
-                }
-            }
-
-            $db->beginTransaction();
-            try {
-                tfResetDownstream($db, $session['id']);
-                $db->delete('session_answers', 'session_id = ?', [$session['id']]);
-                $db->batchInsert('session_answers', $rows);
-                $db->update('test_sessions', ['status' => 'answering'], 'id = ?', [$session['id']]);
-                $db->commit();
-            } catch (Throwable $e) {
-                $db->rollback();
-                throw $e;
-            }
-            jsonSuccess(['saved' => count($rows)]);
-        }
-
-        case 'getSuggestions': {
+        case 'analyzeAnswers': {
             requirePost();
             require_once __DIR__ . '/helpers/testflow.php';
             require_once __DIR__ . '/helpers/openai.php';
             $session = requireTestSession();
-            $answers = tfSessionAnswers($db, $session['id']);
-            if (!$answers) jsonError('Nėra atsakymų.', 422);
+            $rows = tfSessionAnswers($db, $session['id']);
+            if (!$rows) jsonError('Nėra atsakymų.', 422);
 
-            // Idempotent: suggestions already exist → return them (no re-billing)
-            $haveMappings = array_filter($answers, fn($a) => $a['suggested_value_key'] !== null || $a['confirmed_value_key'] !== null);
-            if (!$haveMappings) {
-                $catalog = tfActiveCatalog($db);
-                $aiInput = array_map(fn($a) => [
-                    'id' => (int)$a['id'],
-                    'question' => $a['question_text'],
-                    'text' => $a['answer_text'],
-                ], $answers);
-                $res = aiMapAnswers($aiInput, $catalog);
-
-                $db->insert('ai_suggestions', [
-                    'session_id' => $session['id'],
-                    'provider' => 'openai',
-                    'model' => $res['model'] ?? '',
-                    'prompt_version' => getSetting('ai_prompt_version', ''),
-                    'request_id' => $res['request_id'],
-                    'status' => $res['status'] === 'ok' ? 'ok' : ($res['status'] === 'mock' ? 'mock' : 'error'),
-                    'error_message' => $res['error'],
-                    'raw_response' => $res['raw'] !== null ? mb_substr($res['raw'], 0, 1000000) : null,
-                    'duration_ms' => $res['duration_ms'],
-                ]);
-
-                if ($res['status'] === 'error') {
-                    getLogger()->error('AI mapping failed', ['session' => $session['uuid'],
-                        'error' => $res['error'], 'request_id' => $res['request_id']], 'ai');
-                    jsonError(t('common.errorGeneric'), 503);
-                }
-
-                foreach ($answers as $a) {
-                    $m = $res['mappings'][(int)$a['id']] ?? ['value_key' => null, 'confidence' => 0];
-                    $db->insert('answer_values', [
-                        'session_id' => $session['id'],
-                        'answer_id' => $a['id'],
-                        'suggested_value_key' => $m['value_key'],
-                        'confidence' => $m['confidence'],
-                        'confirmed_value_key' => $m['value_key'],
-                        'source' => 'ai',
-                    ]);
-                }
-                $db->update('test_sessions', ['status' => 'ai_suggested'], 'id = ?', [$session['id']]);
-                $answers = tfSessionAnswers($db, $session['id']);
+            // Idempotent: candidates already computed and comparisons untouched → reuse
+            $existing = tfCandidates($db, $session['id']);
+            $comps = tfComparisons($db, $session['id']);
+            $answeredAny = array_filter($comps, fn($c) => !empty($c['winner_value_key']));
+            if ($existing && $comps && !$answeredAny && $session['status'] === 'comparing') {
+                jsonSuccess(['values' => $existing, 'comparisons' => $comps]);
             }
 
-            jsonSuccess(['answers' => array_map(fn($a) => [
-                'id' => (int)$a['id'],
-                'question_key' => $a['question_key'],
-                'answer_text' => $a['answer_text'],
-                'suggested_value_key' => $a['suggested_value_key'],
-                'confirmed_value_key' => $a['confirmed_value_key'],
-                'confidence' => $a['confidence'] !== null ? (float)$a['confidence'] : null,
-            ], $answers)]);
-        }
+            $qNumbers = [];
+            $n = 1;
+            foreach (tfActiveQuestions($db) as $q) $qNumbers[$q['question_key']] = $n++;
+            // PII never reaches OpenAI: only question_number + text
+            $aiInput = array_map(fn($a) => [
+                'question_number' => $qNumbers[$a['question_key']] ?? 0,
+                'text' => mb_substr($a['answer_text'], 0, 200),
+            ], $rows);
 
-        case 'confirmValues': {
-            requirePost();
-            require_once __DIR__ . '/helpers/testflow.php';
-            $session = requireTestSession();
-            $in = getJsonInput();
-            $confirmations = $in['confirmations'] ?? [];
-            if (!is_array($confirmations)) jsonError('confirmations required');
+            $res = aiAnalyzeValues($aiInput, tfDict($db));
 
-            $validKeys = array_column(tfActiveCatalog($db), 'value_key');
-            $answers = tfSessionAnswers($db, $session['id']);
-            $byAnswerId = array_column($answers, null, 'id');
+            $db->insert('ai_suggestions', [
+                'session_id' => $session['id'],
+                'provider' => 'openai',
+                'model' => getSetting('openai_model', ''),
+                'prompt_version' => 'v3',
+                'request_id' => $res['request_id'],
+                'status' => $res['status'] === 'ok' ? 'ok' : ($res['status'] === 'mock' ? 'mock' : 'error'),
+                'error_message' => $res['error'],
+                'raw_response' => $res['raw'] !== null ? mb_substr($res['raw'], 0, 1000000) : null,
+                'duration_ms' => $res['duration_ms'],
+            ]);
 
-            foreach ($confirmations as $c) {
-                $aid = (int)($c['answer_id'] ?? 0);
-                $key = $c['value_key'] ?? null;
-                if (!isset($byAnswerId[$aid])) continue;
-                if ($key !== null && !in_array($key, $validKeys, true)) continue;
-                $suggested = $byAnswerId[$aid]['suggested_value_key'];
-                $db->update('answer_values', [
-                    'confirmed_value_key' => $key,
-                    'source' => ($key !== null && $key === $suggested) ? 'ai' : 'user',
-                ], 'answer_id = ?', [$aid]);
+            if ($res['status'] === 'error') {
+                getLogger()->error('AI analysis failed', ['session' => $session['uuid'],
+                    'error' => $res['error'], 'request_id' => $res['request_id']], 'ai');
+                jsonError(t('analysis.failed'), 503);
+            }
+            if (count($res['values']) < 3) {
+                jsonSuccess(['needs_more_answers' => true, 'found' => count($res['values'])]);
             }
 
-            $agg = tfConfirmedAggregates($db, $session['id']);
-            $n = max(2, (int)getSetting('compare_values_count', '6'));
-            if (count($agg) < $n) {
-                jsonSuccess([
-                    'needs_more_answers' => true,
-                    'distinct' => count($agg),
-                    'required' => $n,
-                ]);
-            }
-
-            $topKeys = rankingTopN($agg, $n);
-
-            // AI call #2: first-person statements for the duel cards,
-            // grounded in the user's own answers per value
-            require_once __DIR__ . '/helpers/openai.php';
-            $answers = tfSessionAnswers($db, $session['id']);
-            $details = tfValueDetails($db, $topKeys);
-            $byKey = array_column($details, null, 'value_key');
-            $aiInput = [];
-            foreach ($topKeys as $k) {
-                $quotes = array_values(array_map(fn($a) => $a['answer_text'],
-                    array_filter($answers, fn($a) => $a['confirmed_value_key'] === $k)));
-                $aiInput[] = ['value_key' => $k,
-                              'label_lt' => $byKey[$k]['label_lt'] ?? $k,
-                              'answers' => $quotes];
-            }
-            $statements = aiGenerateStatements($aiInput);
-
-            $db->beginTransaction();
-            try {
-                $db->update('test_sessions', [
-                    'top5_json' => json_encode($topKeys, JSON_UNESCAPED_UNICODE),
-                    'statements_json' => json_encode($statements, JSON_UNESCAPED_UNICODE),
-                    'status' => 'comparing',
-                ], 'id = ?', [$session['id']]);
-                tfCreateComparisons($db, $session['id'], $topKeys);
-                $db->commit();
-            } catch (Throwable $e) {
-                $db->rollback();
-                throw $e;
-            }
-
+            tfStoreAnalysis($db, $session['id'], $res['values']);
             jsonSuccess([
-                'top' => $details,
-                'statements' => $statements,
-                'quotes' => array_column(array_map(fn($v) => [$v['value_key'], $v['answers']], $aiInput), 1, 0),
+                'values' => tfCandidates($db, $session['id']),
                 'comparisons' => tfComparisons($db, $session['id']),
             ]);
         }
@@ -888,11 +808,9 @@ try {
             $state = tfResolveState($db, $session);
             if ($state['state'] === 'final') {
                 $state['top_details'] = tfValueDetails($db, $state['top']);
-                // AI call #3: pair-based tension/meaning copy (once)
                 $r = $db->fetchOne("SELECT * FROM session_results WHERE session_id = ?", [$session['id']]);
                 if ($r && $r['tension_text'] === null) {
-                    require_once __DIR__ . '/helpers/openai.php';
-                    $pair = aiGeneratePairText($state['top_details']);
+                    $pair = tfPairText($db, $state['top_details']);
                     $db->update('session_results', [
                         'tension_text' => $pair['tension'],
                         'meaning_text' => $pair['meaning'],
@@ -914,54 +832,76 @@ try {
             $top = json_decode($r['top_keys_json'], true) ?: [];
             jsonSuccess([
                 'top' => tfValueDetails($db, $top),
-                'scores' => json_decode($r['scores_json'], true),
                 'tension' => $r['tension_text'],
                 'meaning' => $r['meaning_text'],
-                'booking_url' => getSetting('booking_url', ''),
                 'email_sent' => $session['status'] === 'email_captured',
             ]);
         }
 
-        case 'saveResultEmail': {
+        case 'saveLead': {
+            // v3: email + required consent + optional marketing opt-in.
+            // DB first; MailerLite automation sends the result email.
             requirePost();
             require_once __DIR__ . '/helpers/testflow.php';
-            require_once __DIR__ . '/helpers/mailer.php';
+            require_once __DIR__ . '/helpers/mailerlite.php';
             $session = requireTestSession();
             $in = getJsonInput();
             if (!empty($in['website'])) jsonSuccess(['sent' => true]); // honeypot
             $email = strtolower(trim($in['email'] ?? ''));
-            if ($email === '') jsonError(t('result.errorEmpty'), 422);
             if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
-                jsonError(t('result.errorInvalid'), 422);
+                jsonError(t('error.email'), 422);
             }
-            if (empty($in['consent'])) jsonError(t('result.errorConsent'), 422);
+            if (empty($in['consent'])) jsonError(t('error.consent'), 422);
+            $marketing = !empty($in['marketing_opt_in']);
+
             $r = $db->fetchOne("SELECT * FROM session_results WHERE session_id = ?", [$session['id']]);
             if (!$r) jsonError('Rezultato dar nėra', 400);
             $ipHash = hashIp(clientIp());
             if (rateLimited('leads', $ipHash, 10, 60)) jsonError(t('common.errorGeneric'), 429);
 
             $top = tfValueDetails($db, json_decode($r['top_keys_json'], true) ?: []);
-            $labels = implode(', ', array_column($top, 'label_lt'));
-            $db->query(
-                "INSERT INTO leads (email, source, session_id, top_values, consented, ip_hash)
-                 VALUES (?, 'result', ?, ?, 1, ?)
-                 ON DUPLICATE KEY UPDATE session_id = VALUES(session_id),
-                                         top_values = VALUES(top_values),
-                                         consented = 1",
-                [$email, $session['id'], $labels, $ipHash]);
+            $value1 = $top[0]['label_lt'] ?? '';
+            $value2 = $top[1]['label_lt'] ?? '';
+            $consentVersion = (string)getSetting('consent_version', 'v1');
 
-            $sent = sendResultEmail($email, $top, $r['tension_text'] ?? '', $r['meaning_text'] ?? '');
-            if (!$sent) {
-                getLogger()->error('Result email failed', ['session' => $session['uuid'],
-                    'email_domain' => substr(strrchr($email, '@'), 1)], 'mail');
+            // referral_code is client/URL input — verify against coaches, never trust it
+            $leadSource = substr((string)($session['lead_source'] ?? ''), 0, 60);
+            $referral = substr((string)($session['referral_code'] ?? ''), 0, 60);
+            $refVerified = 0;
+            if ($referral !== '') {
+                $refVerified = $db->fetchOne("SELECT 1 FROM coaches WHERE code = ?", [$referral]) ? 1 : 0;
+            }
+
+            $db->query(
+                "INSERT INTO leads (email, source, session_id, top_values, value_1, value_2,
+                                    lead_source, referral_code, referral_verified, marketing_opt_in,
+                                    consented, consent_version, ml_pending, ip_hash)
+                 VALUES (?, 'result', ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1, ?)
+                 ON DUPLICATE KEY UPDATE session_id = VALUES(session_id),
+                     top_values = VALUES(top_values), value_1 = VALUES(value_1), value_2 = VALUES(value_2),
+                     lead_source = VALUES(lead_source), referral_code = VALUES(referral_code),
+                     referral_verified = VALUES(referral_verified),
+                     marketing_opt_in = VALUES(marketing_opt_in), consented = 1,
+                     consent_version = VALUES(consent_version), ml_pending = 1",
+                [$email, $session['id'], "$value1, $value2", $value1, $value2,
+                 $leadSource ?: null, $referral ?: null, $refVerified, $marketing ? 1 : 0,
+                 $consentVersion, $ipHash]);
+
+            $ml = mlSubscribeLead($email, $value1, $value2, $leadSource, $referral, $consentVersion, $marketing);
+            if ($ml['ok']) {
+                $db->query(
+                    "UPDATE leads SET ml_pending = 0, mailerlite_subscriber_id = ? WHERE email = ? AND source = 'result'",
+                    [$ml['subscriber_id'], $email]);
+            } elseif ($ml['invalid_email']) {
+                jsonError(t('error.email'), 422);
+            } else {
+                getLogger()->error('MailerLite subscribe failed (lead kept, ml_pending)', [
+                    'session' => $session['uuid']], 'mail');
             }
             $db->update('test_sessions', ['status' => 'email_captured'], 'id = ?', [$session['id']]);
-            jsonSuccess(['sent' => (bool)$sent]);
+            jsonSuccess(['sent' => true]);
         }
 
-        // ════════════════════════════════════════════════════════════════════
-        // PUBLIC — waiting list
-        // ════════════════════════════════════════════════════════════════════
         case 'joinWaitlist': {
             requirePost();
             $in = getJsonInput();

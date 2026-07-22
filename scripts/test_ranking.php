@@ -66,35 +66,33 @@ $scores = rankingScores($comps, $keys);
 check('scores counted, unanswered & tiebreak ignored',
     $scores === ['a' => 2, 'b' => 1, 'c' => 0, 'd' => 0, 'e' => 0]);
 
-// ── rankingResolve ───────────────────────────────────────────────────────────
+// ── rankingResolve (v3 silent ties: wins → freq → one extra duel) ───────────
 $r = rankingResolve(['a' => 4, 'b' => 3, 'c' => 2, 'd' => 1, 'e' => 0]);
 check('clean top2', $r['status'] === 'final' && $r['top'] === ['a', 'b']);
 
-$r = rankingResolve(['a' => 3, 'b' => 3, 'c' => 2, 'd' => 1, 'e' => 1]);
-check('rank1-2 tie is NOT a boundary tie', $r['status'] === 'final' && count($r['top']) === 2
-    && in_array('a', $r['top']) && in_array('b', $r['top']));
+$r = rankingResolve(['a' => 3, 'b' => 3, 'c' => 2], ['a' => 1, 'b' => 5]);
+check('rank1-2 tie resolved by freq (both stay in)', $r['status'] === 'final' && $r['top'] === ['b', 'a']);
 
-$r = rankingResolve(['a' => 4, 'b' => 2, 'c' => 2, 'd' => 1, 'e' => 1]);
-check('2-way boundary tie requests tiebreak', $r['status'] === 'tiebreak'
+$r = rankingResolve(['a' => 4, 'b' => 2, 'c' => 2, 'd' => 1], ['b' => 3, 'c' => 1]);
+check('boundary tie resolved silently by freq', $r['status'] === 'final' && $r['top'] === ['a', 'b']);
+
+$r = rankingResolve(['a' => 4, 'b' => 2, 'c' => 2, 'd' => 1], ['b' => 2, 'c' => 2]);
+check('hard boundary tie requests one extra duel', $r['status'] === 'tiebreak'
     && count($r['pair']) === 2 && in_array('b', $r['pair']) && in_array('c', $r['pair']));
 
-$r = rankingResolve(['a' => 4, 'b' => 2, 'c' => 2, 'd' => 1, 'e' => 1],
+$r = rankingResolve(['a' => 4, 'b' => 2, 'c' => 2, 'd' => 1], ['b' => 2, 'c' => 2], [],
                     ['left' => 'b', 'right' => 'c', 'winner' => 'c']);
 check('tiebreak winner takes slot 2', $r['status'] === 'final' && $r['top'] === ['a', 'c']);
 
-$r = rankingResolve(['a' => 3, 'b' => 3, 'c' => 3, 'd' => 1, 'e' => 0]);
-check('3-way tie across both slots → show all 3', $r['status'] === 'final' && count($r['top']) === 3);
+$r = rankingResolve(['a' => 2, 'b' => 2, 'c' => 2], ['a' => 4, 'b' => 3, 'c' => 2]);
+check('3-way wins tie fully separated by freq', $r['status'] === 'final' && $r['top'] === ['a', 'b']);
 
-$r = rankingResolve(['a' => 4, 'b' => 2, 'c' => 2, 'd' => 2, 'e' => 0]);
-check('3-way tie for slot 2 → show all 4', $r['status'] === 'final' && count($r['top']) === 4
-    && $r['top'][0] === 'a');
-
-$r = rankingResolve(['a' => 2, 'b' => 2, 'c' => 2, 'd' => 2, 'e' => 2]);
-check('total tie → show all 5', $r['status'] === 'final' && count($r['top']) === 5);
-
-$r = rankingResolve(['a' => 4, 'b' => 2, 'c' => 2, 'd' => 1, 'e' => 1],
-                    ['left' => 'b', 'right' => 'd', 'winner' => 'b']); // stale/mismatched pair
+$r = rankingResolve(['a' => 4, 'b' => 2, 'c' => 2, 'd' => 1], ['b' => 2, 'c' => 2], [],
+                    ['left' => 'b', 'right' => 'd', 'winner' => 'b']); // stale pair
 check('mismatched tiebreak row is ignored', $r['status'] === 'tiebreak');
+
+$r = rankingResolve(['a' => 1, 'b' => 1], ['a' => 2, 'b' => 2]);
+check('two values → always final top2', $r['status'] === 'final' && count($r['top']) === 2);
 
 echo $failures ? "\n$failures FAILURES\n" : "\nAll tests passed.\n";
 exit($failures ? 1 : 0);

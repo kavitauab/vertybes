@@ -1,9 +1,7 @@
-/* Vertybių testas — public test flow, matched to the design PDFs.
- *
- * Screens: intro → consent (2/3) → cookies (3/3) → questions ×4 →
- *          AI loading → review (+ value picker) → compare intro →
- *          duels ×15 (+ tie-break) → result → sent.
- * Resume via getTestBootstrap; answers autosave per question.
+/* Vertybės LT — test flow v3 (PERDAVIMAS.md 2026-07-22).
+ * Flow: Intro → Consent → Q1–Q4 → AI analysis → Comparison → Duels →
+ *       (Tie-break) → Result → Kitas žingsnis (email) → Sent.
+ * No review screen; answers stay editable until analysis; ties resolve silently.
  */
 (function () {
     'use strict';
@@ -11,22 +9,20 @@
     var app = document.getElementById('app');
 
     var S = {
-        texts: {}, questions: [], catalog: [], bookingUrl: '',
-        session: null,
+        texts: {}, questions: [], links: {}, session: null,
         consentChecked: false,
         qIndex: 0,
-        answers: {},          // question_key -> [strings]
-        reviewAnswers: [],
-        statements: {},       // value_key -> first-person statement
-        quotes: {},           // value_key -> [user answers]
-        top: [],              // value detail rows
+        answers: {},        // question_key -> [strings]
+        growStopped: {},    // question_key -> bool
+        lastCoach: {},      // question_key -> last shown filled count
+        candidates: [],     // [{value_key,label_lt,confidence,mentions,evidence}]
         comparisons: [],
         result: null,
-        pickerFor: null,
-        pickerSelected: null,
-        duelBackTo: null,
-        slowTimer: null,
+        sentEmail: '',
+        analysisAborted: false,
     };
+
+    var DOT_RAMP = ['#D9432C', '#E8845F', '#A0553D', '#6E2312', '#C4A98E'];
 
     /* ── Utilities ───────────────────────────────────────── */
 
@@ -52,476 +48,493 @@
             .catch(function () { return { success: false, message: T('common.errorGeneric') }; });
     }
     function render(html) {
-        if (S.slowTimer) { clearTimeout(S.slowTimer); S.slowTimer = null; }
         app.innerHTML = '<div class="screen">' + html + '</div>';
         window.scrollTo({ top: 0 });
     }
-    function byKey(key) {
-        for (var i = 0; i < S.catalog.length; i++) {
-            if (S.catalog[i].value_key === key) return S.catalog[i];
+    function candidate(key) {
+        for (var i = 0; i < S.candidates.length; i++) {
+            if (S.candidates[i].value_key === key) return S.candidates[i];
         }
         return null;
     }
-    function upper(s) { return String(s || '').toLocaleUpperCase('lt-LT'); }
 
-    /* ── Icons ───────────────────────────────────────────── */
-    var I = {
-        sparkle: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 2l1.8 5.4L17 9l-5.2 1.6L10 16l-1.8-5.4L3 9l5.2-1.6L10 2zm8 8l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3zm-2 8l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z"/></svg>',
-        check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><polyline points="20 6 9 17 4 12"/></svg>',
-        checkBig: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="34" height="34"><polyline points="20 6 9 17 4 12"/></svg>',
-        clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>',
-        doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>',
-        leaf: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c1.5 2.5 1.5 5.5 0 8-1.5-2.5-1.5-5.5 0-8zM6 8c2.9.3 5.2 2 6 5-2.9-.3-5.2-2-6-5zm12 0c-.8 3-3.1 4.7-6 5 .8-3 3.1-4.7 6-5z"/></svg>',
-        hourglass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="22" height="22"><path d="M6 3h12M6 21h12M8 3v4l4 5 4-5V3M8 21v-4l4-5 4 5v4"/></svg>',
-        search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
-        plusCircle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
-        pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" width="13" height="13"><path d="M17 3l4 4L8 20l-5 1 1-5L17 3z"/></svg>',
-        warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L2 20h20L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>',
-        plane: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4 18-7z"/></svg>',
-        info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15" style="flex-shrink:0;margin-top:.15rem"><circle cx="12" cy="12" r="9"/><path d="M12 8v.5M12 11v5" stroke-linecap="round"/></svg>',
-        chevron: '&#8249;',
-        arrow: '&#8594;',
+    /* ── Attribution + analytics (Consent Mode gated) ────── */
+
+    function attribution() {
+        var stored = null;
+        try { stored = JSON.parse(localStorage.getItem('vt_attribution') || 'null'); } catch (e) {}
+        if (stored) return stored;
+        var p = new URLSearchParams(location.search);
+        var a = { source: p.get('source') || '', referral_code: p.get('referral_code') || '' };
+        if (a.source || a.referral_code) {
+            a.first_seen = new Date().toISOString();
+            try { localStorage.setItem('vt_attribution', JSON.stringify(a)); } catch (e) {}
+            return a;
+        }
+        return { source: '', referral_code: '' };
+    }
+
+    function track(name, params) {
+        var a = attribution();
+        var p = Object.assign({
+            source: a.source || '(none)',
+            referral_code: a.referral_code || '(none)',
+        }, params || {});
+        if (window.gtag) gtag('event', 'vertybiu_testas_' + name, p);
+    }
+
+    function cookieChoice() { try { return localStorage.getItem('vt_cookie_choice') || ''; } catch (e) { return ''; } }
+    function setCookieChoice(v, via) {
+        try { localStorage.setItem('vt_cookie_choice', v); } catch (e) {}
+        if (v === 'all') {
+            if (window.gtag) gtag('consent', 'update', { analytics_storage: 'granted' });
+            if (window.fbq) { fbq('consent', 'grant'); }
+            if (window.clarity) { clarity('consent', true); }
+            track('cookie_accept', via ? { via: via } : {});
+        } else {
+            track('cookie_decline', via ? { via: via } : {});
+        }
+    }
+
+    /* ── Icons / marks ───────────────────────────────────── */
+
+    var MOUNTAIN = function (w, h, extra) {
+        return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 88 50" ' + (extra || '') + '>' +
+            '<path d="M3 47 L29 9 L43 25 L55 3 L85 47 Z" fill="var(--vt-accent)"></path>' +
+            '<path d="M55 3 L61 12 L55 15 L49 11 Z" fill="var(--vt-bg)"></path></svg>';
     };
+    var CHECK = function (size, stroke) {
+        return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="' +
+            (stroke || 'var(--vt-accent)') + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+            '<polyline points="20 6 9 17 4 12"></polyline></svg>';
+    };
+    var CHEVRON = '&#8249;';
 
     /* ── Shared partials ─────────────────────────────────── */
 
-    function stepHead(n) {
-        var pct = Math.round(n / 3 * 100);
-        return '<div class="step-head">' +
-            '<div class="step-dot">' + n + '</div>' +
-            '<div class="step-label">' + esc(T('steps.of')) + '</div>' +
-            '<div class="step-line"><i style="width:' + pct + '%"></i></div>' +
-            '</div>';
-    }
-
     function progressHead(label, pct, backFn) {
         window.__backFn = backFn || null;
-        return '<div class="progress-head">' +
-            '<div class="progress-row">' +
-            (backFn ? '<button class="back-btn" onclick="__backFn()" aria-label="' + esc(T('common.back')) + '">' + I.chevron + '</button>' : '') +
+        return '<div class="progress-head"><div class="progress-row">' +
+            (backFn ? '<button class="back-btn" onclick="__backFn()" aria-label="Atgal">' + CHEVRON + '</button>' : '') +
             '<div class="progress-meta">' +
             '<div class="progress-label-p">' + esc(label) + '</div>' +
             '<div class="progress-track-p"><div class="progress-fill-p" style="width:' + pct + '%"></div></div>' +
             '</div></div><hr class="progress-hr"></div>';
     }
 
-    /* ── Intro (step 1) ──────────────────────────────────── */
+    /* ── 1 · Intro + cookie sheet ────────────────────────── */
 
     function showIntro() {
         render(
-            '<div class="intro-icon">' + I.sparkle + '<span class="dot"></span></div>' +
-            '<h1 class="h-display h-hero">' + esc(T('intro.hero')) + '</h1>' +
-            '<p class="sub-p sub-center intro-sub">' + esc(T('intro.sub')) + '</p>' +
-            '<div class="card-p intro-checklist">' +
-            [1, 2, 3].map(function (i) {
-                return '<div class="intro-check"><span class="tick">' + I.check + '</span>' +
-                    '<span>' + esc(T('intro.bullet' + i)) + '</span></div>';
+            '<h1 class="h1-p intro-hero">' + esc(T('intro.hero')) + '</h1>' +
+            '<p class="sub-p intro-sub">' + esc(T('intro.sub')) + '</p>' +
+            '<div class="card-p intro-checks">' +
+            [1, 2, 3, 4].map(function (i) {
+                return '<div class="intro-check">' + CHECK(14) + '<span>' + esc(T('intro.bullet' + i)) + '</span></div>';
             }).join('') +
             '</div>' +
-            '<button class="btn-p" id="startBtn">' + esc(T('intro.cta')) + '</button>'
+            '<button class="btn-p" id="startBtn">' + esc(T('intro.cta')) + '</button>' +
+            '<div class="intro-cookie-link"><button class="link-quiet" id="cookieLink">' + esc(T('cookies.link')) + '</button></div>'
         );
         document.getElementById('startBtn').onclick = function () {
+            track('start');
             if (document.cookie.indexOf('consent_given=1') !== -1) { startSession(); return; }
             showConsent();
         };
+        document.getElementById('cookieLink').onclick = function () { openCookieSheet(true); };
+        if (!cookieChoice()) openCookieSheet(false);
     }
 
-    /* ── Consent (step 2) ────────────────────────────────── */
+    function openCookieSheet(expanded) {
+        var el = document.getElementById('cookieSheet');
+        if (!el) {
+            el = document.createElement('div');
+            el.className = 'sheet-overlay';
+            el.id = 'cookieSheet';
+            document.body.appendChild(el);
+        }
+        function layer(showSettings) {
+            el.innerHTML =
+                '<div class="sheet"><div class="sheet-handle"></div>' +
+                '<div class="sheet-head"><h2>' + esc(T('cookies.title')) + '</h2>' +
+                '<button class="sheet-close" id="ckClose">&times;</button></div>' +
+                '<div class="sheet-body">' +
+                '<p>' + esc(T('cookies.body')) + '</p>' +
+                (showSettings ?
+                    '<div class="cookie-cat"><div><div class="cc-name">' + esc(T('cookies.necessary.title')) + '</div>' +
+                    '<div class="cc-desc">' + esc(T('cookies.necessary.desc')) + '</div></div>' +
+                    '<div class="cc-state">' + esc(T('cookies.always')) + '</div></div>' +
+                    '<div class="cookie-cat"><div><div class="cc-name">' + esc(T('cookies.stats.title')) + '</div>' +
+                    '<div class="cc-desc">' + esc(T('cookies.stats.desc')) + '</div></div>' +
+                    '<label class="check-line" style="margin-top:.15rem"><input type="checkbox" id="ckStats"' +
+                    (cookieChoice() !== 'necessary' ? ' checked' : '') + '></label></div>' +
+                    '<div class="cookie-actions"><button class="btn-p" id="ckSave">' + esc(T('cookies.saveChoice')) + '</button></div>'
+                    :
+                    '<div class="cookie-actions">' +
+                    '<button class="btn-p" id="ckAll">' + esc(T('cookies.acceptAll')) + '</button>' +
+                    '<button class="btn-p ghost" id="ckNec">' + esc(T('cookies.onlyNecessary')) + '</button>' +
+                    '<button class="link-quiet" id="ckSettings">' + esc(T('cookies.settings')) + '</button>' +
+                    '</div>') +
+                '</div></div>';
+            document.getElementById('ckClose').onclick = close;
+            if (showSettings) {
+                document.getElementById('ckSave').onclick = function () {
+                    setCookieChoice(document.getElementById('ckStats').checked ? 'all' : 'necessary', 'settings');
+                    close();
+                };
+            } else {
+                document.getElementById('ckAll').onclick = function () { setCookieChoice('all'); close(); };
+                document.getElementById('ckNec').onclick = function () { setCookieChoice('necessary'); close(); };
+                document.getElementById('ckSettings').onclick = function () { layer(true); };
+            }
+        }
+        function close() { el.classList.remove('open'); document.body.style.overflow = ''; }
+        layer(!!expanded);
+        el.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    /* ── 2 · Prieš pradedant ─────────────────────────────── */
 
     function showConsent(withError) {
         render(
-            stepHead(2) +
-            '<h1 class="h-display h-screen">' + esc(T('consent.title')) + '</h1>' +
-            '<div class="card-p consent-card">' +
-            '<div class="icon-chip">' + I.clock + '</div>' +
-            '<p>' + esc(T('consent.aiInfo')) + '</p>' +
-            '</div>' +
-            '<p class="policy-link-line">' + esc(T('consent.linkIntro')) + '<br>' +
+            '<h1 class="h1-p" style="margin-top:1.2rem">' + esc(T('consent.title')) + '</h1>' +
+            '<div class="card-p consent-card"><p>' + esc(T('consent.aiInfo')) + '</p></div>' +
+            [1, 2, 3, 4].map(function (i) {
+                return '<div class="guide-row">' + CHECK(13) + '<span>' + esc(T('consent.g' + i)) + '</span></div>';
+            }).join('') +
+            '<p class="policy-link-line">' + esc(T('consent.linkIntro')) + ' ' +
             '<a href="/privatumas" data-policy="privacy">' + esc(T('consent.linkText')) + '</a>.</p>' +
-            '<label class="check-line' + (withError ? ' invalid' : '') + '" id="consentLine">' +
+            '<label class="check-line' + (withError ? ' invalid' : '') + '">' +
             '<input type="checkbox" id="consentCheck"' + (S.consentChecked ? ' checked' : '') + '>' +
             '<span>' + esc(T('consent.checkbox')) + '</span></label>' +
-            '<div class="field-error' + (withError ? ' show' : '') + '" id="consentError">' +
-            I.info + '<span>' + esc(T('consent.error')) + '</span></div>' +
-            '<div style="margin-top:1.5rem"><button class="btn-p" id="consentBtn">' + esc(T('common.continue')) + '</button></div>'
+            '<div class="field-error' + (withError ? ' show' : '') + '">' + esc(T('consent.error')) + '</div>' +
+            '<div style="margin-top:1.4rem"><button class="btn-p" id="consentBtn"' +
+            (S.consentChecked ? '' : ' disabled') + '>Tęsti</button></div>'
         );
         document.getElementById('consentCheck').onchange = function () {
             S.consentChecked = this.checked;
-            if (this.checked) {
-                document.getElementById('consentLine').classList.remove('invalid');
-                document.getElementById('consentError').classList.remove('show');
-            }
+            document.getElementById('consentBtn').disabled = !this.checked;
         };
         document.getElementById('consentBtn').onclick = function () {
             if (!S.consentChecked) { showConsent(true); return; }
-            showCookies();
-        };
-    }
-
-    /* ── Cookies (step 3) ────────────────────────────────── */
-
-    function showCookies(declined) {
-        render(
-            stepHead(3) +
-            '<h1 class="h-display h-screen">' + esc(T('cookies.title')) + '</h1>' +
-            '<div class="card-p consent-card">' +
-            '<div class="icon-chip">' + I.doc + '</div>' +
-            '<p>' + esc(T('cookies.body')) + '</p>' +
-            '</div>' +
-            '<p class="policy-link-line"><a href="/slapukai" data-policy="cookies">' + esc(T('cookies.popup.title')) + '</a></p>' +
-            (declined ? '<div class="error-banner" style="margin-bottom:1rem">' + I.info + '<span>' + esc(T('cookies.declined')) + '</span></div>' : '') +
-            '<button class="btn-p" id="acceptBtn">' + esc(T('cookies.accept')) + '</button>' +
-            '<div style="margin-top:.8rem"><button class="btn-p ghost quiet" id="declineBtn">' + esc(T('cookies.decline')) + '</button></div>'
-        );
-        document.getElementById('acceptBtn').onclick = function () {
-            this.disabled = true;
+            track('consent_complete', { policy_viewed: window.__policyViewed === true });
             startSession();
         };
-        document.getElementById('declineBtn').onclick = function () { showCookies(true); };
     }
 
     function startSession() {
-        api('startTest', { privacy_accepted: true, cookies_accepted: true }).then(function (d) {
-            if (!d.success) { showCookies(true); return; }
+        var a = attribution();
+        api('startTest', {
+            privacy_accepted: true, cookies_accepted: true,
+            source: a.source, referral_code: a.referral_code,
+        }).then(function (d) {
+            if (!d.success) { showConsent(true); return; }
             document.cookie = 'consent_given=1; path=/; max-age=31536000; samesite=lax';
             S.qIndex = 0;
             showQuestion();
         });
     }
 
-    /* ── Questions ───────────────────────────────────────── */
+    /* ── 3 · Questions (auto-grow, coaching, min-2 gate) ─── */
 
+    var COACH_FALLBACK = '💡';
     var autosaveTimer = null;
+
+    function coachFor(n) {
+        var raw = T('coach.' + Math.min(n, 6));
+        var parts = raw.split('|');
+        return { emoji: parts[0] || COACH_FALLBACK, text: parts[1] || raw };
+    }
 
     function showQuestion(errorBanner) {
         var q = S.questions[S.qIndex];
-        if (!q) { startAnalysis(); return; }
+        if (!q) { finishQuestions(); return; }
         var total = S.questions.length;
         var cur = S.qIndex + 1;
-        var saved = S.answers[q.question_key] || [];
-        var slots = Math.max(2, saved.length);
-        var hasError = !!errorBanner;
+        var qk = q.question_key;
+        var saved = S.answers[qk] || [];
+        var rows = Math.max(2, saved.length);
+        var maxRows = +q.max_answers || 6;
 
         var fields = '';
-        for (var i = 0; i < slots; i++) {
-            var ph = (q.placeholders && q.placeholders[i]) ? q.placeholders[i]
-                   : (q.placeholders && q.placeholders.length ? q.placeholders[q.placeholders.length - 1] : '');
+        for (var i = 0; i < rows; i++) {
+            var ph = i === 2 ? T('questions.kasdar')
+                : (q.placeholders && q.placeholders[Math.min(i, (q.placeholders.length || 1) - 1)]) || '';
             fields += '<div class="answer-row-p">' +
-                '<div class="field-card' + (hasError && i < 2 ? ' invalid' : '') + '">' +
-                '<div class="field-head">' +
-                '<span class="field-label">' + esc(T('questions.answerLabel', { n: i + 1 })) + '</span>' +
-                (hasError && i < 2 ? '<span class="field-required">' + esc(T('questions.required')) + '</span>' : '') +
-                '</div>' +
-                '<input type="text" maxlength="500" data-idx="' + i + '"' +
-                ' placeholder="' + esc(ph) + '" value="' + esc(saved[i] || '') + '">' +
-                '</div>' +
-                (i >= 2 ? '<button class="answer-remove-p" data-remove="' + i + '" title="Pašalinti">&times;</button>' : '') +
+                '<div class="field-card"><input type="text" maxlength="500" data-idx="' + i + '"' +
+                ' placeholder="' + esc(ph) + '" value="' + esc(saved[i] || '') + '"></div>' +
+                '<button class="answer-remove-p" data-remove="' + i + '" title="Pašalinti">&times;</button>' +
                 '</div>';
         }
 
         render(
             progressHead(T('questions.progress', { current: cur, total: total }), Math.round(cur / total * 100),
                 function () {
-                    collectCurrent();
+                    collect();
                     if (S.qIndex === 0) { showIntro(); } else { S.qIndex--; showQuestion(); }
                 }) +
-            '<h1 class="h-display h-screen" style="margin-top:1.4rem">' + esc(q.text) + '</h1>' +
-            '<p class="q-help">' + esc(q.hint || '') + '</p>' +
-            (hasError ? '<div class="error-banner q-error">' + I.info + '<span>' + esc(errorBanner) + '</span></div>' : '') +
+            '<h1 class="h1-p" style="margin-top:1.2rem">' + esc(q.text) + '</h1>' +
+            '<p class="q-instruction">' + esc(q.hint || '') + '</p>' +
+            (errorBanner ? '<div class="error-banner q-error">' + esc(errorBanner) + '</div>' : '') +
             '<div class="answers-stack" id="answerStack">' + fields + '</div>' +
-            (slots < (+q.max_answers || 6)
-                ? '<button class="btn-sand" id="addAnswer"><span class="plus">+</span>' + esc(T('questions.addAnswer')) + '</button>'
-                : '') +
-            '<div style="margin-top:1.5rem"><button class="btn-p" id="nextBtn">' + esc(T('common.continue')) + '</button></div>' +
-            '<div class="autosave-note">' + esc(T('questions.autosave')) + '</div>'
+            '<div class="coach-line" id="coachLine"></div>' +
+            '<button class="btn-p" id="nextBtn">Tęsti</button>' +
+            '<div class="autosave-note">' + esc(T('questions.autosave')) + '</div>' +
+            '<div class="gate-overlay" id="gateModal"><div class="gate-modal">' +
+            '<h3>' + esc(T('gate.title')) + '</h3>' +
+            '<p>' + esc(T('gate.b1')) + '</p><p>' + esc(T('gate.b2')) + '</p><p>' + esc(T('gate.b3')) + '</p>' +
+            '<button class="btn-p" id="gateBtn">' + esc(T('gate.cta')) + '</button>' +
+            '</div></div>'
         );
 
         var stack = document.getElementById('answerStack');
+
+        function inputs() { return [].slice.call(stack.querySelectorAll('input')); }
+        function collect() {
+            S.answers[qk] = inputs().map(function (i2) { return i2.value; });
+        }
+        function filledCount() {
+            return inputs().filter(function (i2) { return i2.value.trim() !== ''; }).length;
+        }
+
+        function renderCoach(n, animate) {
+            var line = document.getElementById('coachLine');
+            if (!line) return;
+            var c = coachFor(n);
+            var emoji = c.emoji === 'MOUNTAIN' ? MOUNTAIN(20, 11, 'style="flex-shrink:0"') :
+                '<span class="coach-emoji">' + esc(c.emoji) + '</span>';
+            line.className = 'coach-line';
+            line.innerHTML = emoji + '<span' + (animate ? ' style="animation:vtCoachIn .28s ease both"' : '') + '>' +
+                esc(c.text) + '</span>';
+            if (n >= 1 && n < 6) {
+                clearTimeout(line.__t);
+                line.__t = setTimeout(function () {
+                    line.className = 'coach-line helper';
+                    line.innerHTML = '<span>' + esc(T('coach.helper')) + '</span>';
+                }, 2600);
+            }
+        }
+        renderCoach(filledCount(), false);
+        S.lastCoach[qk] = filledCount();
+
+        function refreshAnswersUI() {
+            var list = inputs();
+            var filled = filledCount();
+            // auto-grow: all rows filled and fewer than max → append one
+            if (!S.growStopped[qk] && list.length < maxRows && filled === list.length) {
+                collect();
+                S.answers[qk].push('');
+                track('answer_add', { question_number: cur, answer_index: list.length, via: 'auto' });
+                var keep = document.activeElement === list[list.length - 1] ? list.length - 1 : null;
+                showQuestion();
+                if (keep !== null) {
+                    var ni = document.querySelectorAll('#answerStack input');
+                    ni[keep].focus();
+                    var v = ni[keep].value;
+                    ni[keep].setSelectionRange(v.length, v.length);
+                }
+                return;
+            }
+            if (filled !== S.lastCoach[qk]) {
+                S.lastCoach[qk] = filled;
+                renderCoach(filled, true);
+            }
+        }
+
         stack.addEventListener('input', function () {
-            collectCurrent();
+            collect();
+            refreshAnswersUI();
             if (autosaveTimer) clearTimeout(autosaveTimer);
-            autosaveTimer = setTimeout(function () { autosave(q.question_key); }, 1800);
+            autosaveTimer = setTimeout(function () { autosave(qk); }, 1600);
         });
+
+        // "✓ Atsakymas išsaugotas" flash on blur of an edited non-empty field
+        stack.addEventListener('focusout', function (e) {
+            var inp = e.target;
+            if (!inp || inp.tagName !== 'INPUT') return;
+            if (inp.value.trim() === '' || inp.__flashedFor === inp.value) return;
+            inp.__flashedFor = inp.value;
+            var row = inp.closest('.answer-row-p');
+            var old = row.querySelector('.saved-flash');
+            if (old) old.remove();
+            var pill = document.createElement('span');
+            pill.className = 'saved-flash';
+            pill.innerHTML = CHECK(9, 'var(--vt-muted)') + ' ' + esc(T('questions.savedFlash'));
+            row.appendChild(pill);
+            setTimeout(function () { pill.remove(); }, 1000);
+            autosave(qk);
+        });
+
         stack.querySelectorAll('[data-remove]').forEach(function (b) {
             b.onclick = function () {
-                collectCurrent();
-                S.answers[q.question_key].splice(+b.dataset.remove, 1);
+                collect();
+                var idx = +b.dataset.remove;
+                var wasEmpty = (S.answers[qk][idx] || '').trim() === '';
+                S.answers[qk].splice(idx, 1);
+                if (wasEmpty) S.growStopped[qk] = true;  // user intent respected
                 showQuestion();
             };
         });
-        var add = document.getElementById('addAnswer');
-        if (add) add.onclick = function () {
-            collectCurrent();
-            var list = S.answers[q.question_key] = S.answers[q.question_key] || [];
-            while (list.length < slots) list.push('');
-            list.push('');
-            showQuestion();
-            var inputs = document.querySelectorAll('#answerStack input');
-            inputs[inputs.length - 1].focus();
+
+        document.getElementById('gateBtn').onclick = function () {
+            document.getElementById('gateModal').classList.remove('open');
+            var before = filledCount();
+            track('single_answer_add_more_clicked', { answers_before: before, answers_after: before });
+            var empty = inputs().find(function (i2) { return i2.value.trim() === ''; });
+            if (empty) empty.focus();
         };
-        document.getElementById('nextBtn').onclick = function () {
-            collectCurrent();
-            var vals = (S.answers[q.question_key] || []).filter(function (v) { return v.trim() !== ''; });
-            if (!vals.length) { showQuestion(T('questions.error')); return; }
-            var btn = this;
-            btn.disabled = true;
-            api('saveQuestionAnswers', { question_key: q.question_key, answers: vals }).then(function (d) {
-                if (!d.success) { btn.disabled = false; showQuestion(d.message || T('common.errorGeneric')); return; }
-                S.answers[q.question_key] = vals;
+
+        var nextBtn = document.getElementById('nextBtn');
+        nextBtn.onclick = function () {
+            collect();
+            var vals = S.answers[qk].filter(function (v) { return v.trim() !== ''; });
+            if (vals.length === 0) { renderCoach(0, true); return; }
+            if (vals.length === 1) {
+                track('single_answer_popup_shown', { question_number: cur, answers_count: 1 });
+                document.getElementById('gateModal').classList.add('open');
+                return;
+            }
+            nextBtn.disabled = true;
+            api('saveQuestionAnswers', { question_key: qk, answers: vals }).then(function (d) {
+                if (!d.success) { nextBtn.disabled = false; showQuestion(d.message || T('common.errorGeneric')); return; }
+                track('question_answered', { question_number: cur, answers_count: vals.length });
+                S.answers[qk] = vals;
                 S.qIndex++;
                 showQuestion();
             });
         };
-
-        function collectCurrent() {
-            var inputs = document.querySelectorAll('#answerStack input');
-            var list = [];
-            inputs.forEach(function (inp) { list.push(inp.value); });
-            S.answers[q.question_key] = list;
-        }
     }
 
-    function autosave(qKey) {
-        var vals = (S.answers[qKey] || []).filter(function (v) { return v.trim() !== ''; });
-        if (vals.length) api('saveQuestionAnswers', { question_key: qKey, answers: vals });
+    function autosave(qk) {
+        var vals = (S.answers[qk] || []).filter(function (v) { return v.trim() !== ''; });
+        if (vals.length) api('saveQuestionAnswers', { question_key: qk, answers: vals });
     }
 
-    /* ── AI loading ──────────────────────────────────────── */
+    function finishQuestions() {
+        // Q4 Tęsti → auto-save acknowledgment → analysis with NO extra click
+        showAnalysis();
+    }
 
-    function showAiLoading(slow) {
+    /* ── 4 · AI analysis (the transition screen) ─────────── */
+
+    function showAnalysis() {
+        S.analysisAborted = false;
+        track('analysis_view');
         render(
             '<div class="ai-screen">' +
-            '<div class="ai-mark"><div class="arc"></div><div class="leaf">' + I.leaf + '</div></div>' +
-            '<h1 class="h-display h-screen h-center">' + esc(T('loading.title')) + '</h1>' +
-            '<div class="ai-dash"></div>' +
-            '<p class="sub-p sub-center">' + esc(T('loading.sub')) + '</p>' +
-            (slow
-                ? '<div class="card-p slow-card">' +
-                  '<div class="slow-head">' + I.hourglass + '<span>' + esc(T('loading.slow.title')) + '</span></div>' +
-                  '<p>' + esc(T('loading.slow.body')) + '</p></div>' +
-                  '<div class="slow-actions">' +
-                  '<button class="btn-p" id="waitBtn">' + esc(T('loading.wait')) + '</button>' +
-                  '<button class="btn-p ghost quiet" id="retryBtn">' + esc(T('loading.retry')) + '</button></div>'
-                : '<div class="ai-chip"><span class="pulse"></span>' + esc(T('loading.chip')) + '</div>') +
+            '<div class="ai-saved" id="aiSaved">' + CHECK(12) + ' ' + esc(T('analysis.saved')) + '</div>' +
+            '<div class="ai-mountain">' +
+            '<svg width="176" height="100" viewBox="0 0 88 50" style="display:block;margin:0 auto">' +
+            '<path d="M3 47 L29 9 L43 25 L55 3 L85 47 Z" fill="var(--vt-accent)" style="animation:vtFillIn 3.4s ease infinite"></path>' +
+            '<path d="M55 3 L61 12 L55 15 L49 11 Z" fill="var(--vt-bg)" style="animation:vtFillIn 3.4s ease infinite"></path>' +
+            '<path d="M3 47 L29 9 L43 25 L55 3 L85 47 Z" fill="none" stroke="var(--vt-accent)" stroke-width="2.5" ' +
+            'stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="340" ' +
+            'style="animation:vtDraw 3.4s ease infinite"></path></svg></div>' +
+            '<h1 class="h1-p h-center">' + esc(T('analysis.title')) + '</h1>' +
+            '<div class="ai-steps">' +
+            '<div class="ai-step" id="st1">' + CHECK(13) + '<span>' + esc(T('analysis.step1')) + '</span></div>' +
+            '<div class="ai-step" id="st2">' + CHECK(13) + '<span>' + esc(T('analysis.step2')) + '</span></div>' +
+            '<div class="ai-step" id="st3"><span class="dot-pulse"></span><span>' + esc(T('analysis.step3')) + '</span></div>' +
+            '</div>' +
+            '<div class="ai-edit" id="aiEdit"><button class="link-quiet" id="editAnswers">' + esc(T('analysis.edit')) + '</button></div>' +
+            '<div class="ai-seed">' + esc(T('analysis.seed')) + '</div>' +
             '</div>'
         );
-        if (slow) {
-            document.getElementById('waitBtn').onclick = function () { showAiLoading(false); armSlowTimer(); };
-            document.getElementById('retryBtn').onclick = function () { startAnalysis(); };
-        }
-    }
+        setTimeout(function () { var e = document.getElementById('st1'); if (e) e.classList.add('on'); }, 300);
+        setTimeout(function () { var e = document.getElementById('st2'); if (e) e.classList.add('on'); }, 1400);
+        setTimeout(function () { var e = document.getElementById('st3'); if (e) e.classList.add('on'); }, 2500);
+        // the escape hatch fades after ~2.8 s
+        setTimeout(function () {
+            var s1 = document.getElementById('aiSaved'), s2 = document.getElementById('aiEdit');
+            if (s1) s1.style.opacity = '0';
+            if (s2) { s2.style.opacity = '0'; s2.style.pointerEvents = 'none'; }
+        }, 2800);
+        document.getElementById('editAnswers').onclick = function () {
+            S.analysisAborted = true;
+            track('analysis_edit_click');
+            S.qIndex = 0;
+            showQuestion();
+        };
 
-    function armSlowTimer() {
-        if (S.slowTimer) clearTimeout(S.slowTimer);
-        S.slowTimer = setTimeout(function () { showAiLoading(true); }, 10000);
-    }
-
-    function startAnalysis() {
-        showAiLoading(false);
-        armSlowTimer();
-        api('getSuggestions', {}).then(function (d) {
-            if (S.slowTimer) { clearTimeout(S.slowTimer); S.slowTimer = null; }
-            if (!d.success) { showAiLoading(true); return; }
-            S.reviewAnswers = d.answers;
-            showReview();
+        var started = Date.now();
+        api('analyzeAnswers', {}).then(function (d) {
+            if (S.analysisAborted) return;
+            var wait = Math.max(0, 3400 - (Date.now() - started));
+            setTimeout(function () {
+                if (S.analysisAborted) return;
+                if (!d.success) { showAnalysisError(); return; }
+                if (d.needs_more_answers) {
+                    S.qIndex = 0;
+                    showQuestion(T('questions.needMore'));
+                    return;
+                }
+                S.candidates = d.values;
+                S.comparisons = d.comparisons;
+                showComparison();
+            }, wait);
         });
     }
 
-    /* ── Review ──────────────────────────────────────────── */
-
-    function isUncertain(a) {
-        return a.confirmed_value_key &&
-            a.confidence !== null && a.confidence !== undefined &&
-            +a.confidence < 0.6 && a.suggested_value_key === a.confirmed_value_key;
-    }
-
-    function showReview(errorBanner) {
-        var byQuestion = {};
-        S.reviewAnswers.forEach(function (a) {
-            (byQuestion[a.question_key] = byQuestion[a.question_key] || []).push(a);
-        });
-
-        var body = '';
-        S.questions.forEach(function (q) {
-            var items = byQuestion[q.question_key];
-            if (!items) return;
-            body += '<div class="review-section"><span>' + esc(upper(q.topic_label || q.text)) + '</span></div>';
-            items.forEach(function (a) {
-                var v = a.confirmed_value_key ? byKey(a.confirmed_value_key) : null;
-                var uncertain = isUncertain(a);
-                var i = S.reviewAnswers.indexOf(a);
-                body += '<div class="review-card">' +
-                    '<div class="mini-label">' + esc(T('review.answerLabel')) + '</div>' +
-                    '<div class="answer-quote">„' + esc(a.answer_text) + '“</div>' +
-                    (uncertain ? '<div class="uncertain-chip">' + I.info + esc(T('review.uncertain')) + '</div>' : '') +
-                    '<div class="mini-label">' + esc(T('review.valueLabel')) + '</div>' +
-                    '<div class="value-row">' +
-                    '<span class="value-name">' + (v ? esc(upper(v.label_lt)) : '—') + '</span>' +
-                    '<button class="change-chip" data-i="' + i + '">' + I.pencil + esc(T('review.change')) + '</button>' +
-                    '</div>' +
-                    '<div class="value-meaning' + (uncertain ? ' uncertain' : '') + '">' +
-                    esc(uncertain ? T('review.uncertainBody') : (v ? v.meaning_lt : '')) + '</div>' +
-                    '</div>';
-            });
-        });
-
+    function showAnalysisError() {
         render(
-            '<h1 class="h-display h-screen" style="margin-top:.6rem">' + esc(T('review.title')) + '</h1>' +
-            '<p class="q-help">' + esc(T('review.sub')) + '</p>' +
-            (errorBanner ? '<div class="error-banner q-error">' + I.info + '<span>' + esc(errorBanner) + '</span></div>' : '') +
-            body +
-            '<div style="margin-top:1.4rem"><button class="btn-p" id="confirmBtn">' + esc(T('common.continue')) + '</button></div>'
+            '<div class="ai-screen" style="padding-top:3rem">' +
+            MOUNTAIN(64, 36) +
+            '<h1 class="h1-p h-center" style="margin:1.2rem 0 .6rem">' + esc(T('analysis.failed')) + '</h1>' +
+            '<div style="max-width:280px;margin:1.4rem auto 0">' +
+            '<button class="btn-p" id="retryBtn">' + esc(T('analysis.retry')) + '</button></div>' +
+            '</div>'
         );
-
-        app.querySelectorAll('.change-chip').forEach(function (chip) {
-            chip.onclick = function () { openPicker(+chip.dataset.i); };
-        });
-        document.getElementById('confirmBtn').onclick = confirmValues;
+        document.getElementById('retryBtn').onclick = function () { showAnalysis(); };
     }
 
-    function confirmValues() {
-        var missing = S.reviewAnswers.some(function (a) { return !a.confirmed_value_key; });
-        if (missing) { showReview(T('review.uncertainBody')); return; }
-        var btn = document.getElementById('confirmBtn');
-        btn.disabled = true;
-        btn.textContent = T('loading.chip');
-        api('confirmValues', {
-            confirmations: S.reviewAnswers.map(function (a) {
-                return { answer_id: a.id, value_key: a.confirmed_value_key };
-            }),
-        }).then(function (d) {
-            if (!d.success) { showReview(d.message || T('common.errorGeneric')); return; }
-            if (d.needs_more_answers) {
-                S.qIndex = 0;
-                showQuestion(T('questions.needMore'));
-                return;
-            }
-            S.top = d.top;
-            S.statements = d.statements || {};
-            S.quotes = d.quotes || {};
-            S.comparisons = d.comparisons;
-            showCompareIntro();
-        });
-    }
+    /* ── 5 · Comparison (reasoning reveal) ───────────────── */
 
-    /* ── Value picker ────────────────────────────────────── */
-
-    function openPicker(i) {
-        S.pickerFor = i;
-        S.pickerSelected = S.reviewAnswers[i].confirmed_value_key || null;
-        showPicker('');
-    }
-
-    function showPicker(query) {
-        var q = (query || '').trim().toLowerCase();
-        var list;
-        var title;
-        if (q === '') {
-            list = S.catalog.filter(function (v) { return +v.is_core === 1; });
-            title = T('picker.coreTitle');
-        } else {
-            list = S.catalog.filter(function (v) {
-                return v.label_lt.toLowerCase().indexOf(q) !== -1 ||
-                       (v.synonyms_lt || '').toLowerCase().indexOf(q) !== -1;
-            }).slice(0, 30);
-            title = T('picker.allTitle');
-        }
-        // keep the current selection visible even if it's not in the list
-        if (S.pickerSelected && !list.some(function (v) { return v.value_key === S.pickerSelected; })) {
-            var sel = byKey(S.pickerSelected);
-            if (sel) list = [sel].concat(list);
-        }
-
-        var grid = list.map(function (v) {
-            return '<button class="value-cell' + (v.value_key === S.pickerSelected ? ' selected' : '') + '"' +
-                ' data-key="' + esc(v.value_key) + '">' + esc(v.label_lt) + '</button>';
+    function showComparison() {
+        var cards = S.candidates.map(function (v, i) {
+            var chips = (v.mentions || []).map(function (m, j) {
+                return '<span class="cmp-chip" style="animation-delay:' +
+                    (1.05 + i * .38 + .18 + j * .1).toFixed(2) + 's">' + esc(m) + '</span>';
+            }).join('');
+            return '<div class="cmp-card' + (i === 0 ? ' first' : '') + '" style="animation-delay:' +
+                (1.05 + i * .38).toFixed(2) + 's">' +
+                '<div class="cmp-name-row"><span class="cmp-dot" style="background:' +
+                DOT_RAMP[i % DOT_RAMP.length] + '"></span>' +
+                '<span class="cmp-name">' + esc(v.label_lt) + '</span></div>' +
+                (chips ? '<div class="cmp-chips">' + chips + '</div>' : '') +
+                '</div>';
         }).join('');
 
+        var total = S.comparisons.filter(function (c) { return !+c.is_tiebreak; }).length;
+        var ctaDelay = (1.05 + S.candidates.length * .38 + .5).toFixed(2);
+
         render(
-            progressHead(T('picker.title'), 100, function () { showReview(); }) +
-            '<div class="picker-screen">' +
-            '<h1 class="h-display h-screen h-center" style="margin-top:1.2rem">' + esc(T('picker.title')) + '</h1>' +
-            '<div class="picker-search-wrap">' + I.search +
-            '<input type="text" class="picker-search-p" id="pickerSearch" value="' + esc(query || '') + '"' +
-            ' placeholder="' + esc(T('picker.search')) + '"></div>' +
-            '<div class="picker-head-row"><h2>' + esc(title) + '</h2>' +
-            '<span class="chip-plain">' + esc(T('picker.requiredChip')) + '</span></div>' +
-            '<div class="value-grid">' + grid + '</div>' +
-            '<div class="card-p custom-card">' +
-            '<div class="custom-head">' + I.plusCircle + esc(T('picker.customTitle')) + '</div>' +
-            '<input type="text" class="input-plain" id="customInput" maxlength="60"' +
-            ' placeholder="' + esc(T('picker.customPlaceholder')) + '">' +
-            '</div>' +
-            '<button class="btn-p" id="pickerSave">' + esc(T('picker.save')) + '</button>' +
+            '<h1 class="h1-p" style="margin-top:1.2rem">' + esc(T('comparison.title')) + '</h1>' +
+            '<p class="sub-p" style="margin-top:.4rem">' + esc(T('comparison.sub')) + '</p>' +
+            '<div class="cmp-status" id="cmpStatus">🤖 ' + esc(T('comparison.analyzing')) + '</div>' +
+            '<div class="cmp-stack">' + cards + '</div>' +
+            '<div class="cmp-cta" style="animation-delay:' + ctaDelay + 's">' +
+            '<div class="cmp-lead">' + esc(T('comparison.next')) + '</div>' +
+            '<button class="btn-p" id="cmpGo">' + esc(T('comparison.cta')) + '</button>' +
+            '<div class="cmp-caption">' + esc(T('comparison.caption')) + '</div>' +
+            '<div class="cmp-restart"><button class="link-quiet" id="cmpRestart">' + esc(T('comparison.restart')) + '</button></div>' +
             '</div>'
         );
-
-        var searchEl = document.getElementById('pickerSearch');
-        var searchTimer = null;
-        searchEl.addEventListener('input', function () {
-            var val = this.value;
-            if (searchTimer) clearTimeout(searchTimer);
-            searchTimer = setTimeout(function () {
-                var pos = searchEl.selectionStart;
-                showPicker(val);
-                var el = document.getElementById('pickerSearch');
-                el.focus();
-                try { el.setSelectionRange(pos, pos); } catch (e) {}
-            }, 250);
-        });
-        app.querySelectorAll('.value-cell').forEach(function (cell) {
-            cell.onclick = function () {
-                S.pickerSelected = cell.dataset.key;
-                app.querySelectorAll('.value-cell').forEach(function (c) { c.classList.remove('selected'); });
-                cell.classList.add('selected');
-            };
-        });
-        document.getElementById('pickerSave').onclick = function () {
-            var btn = this;
-            var custom = document.getElementById('customInput').value.trim();
-            var apply = function (key) {
-                if (S.pickerFor !== null && key) {
-                    S.reviewAnswers[S.pickerFor].confirmed_value_key = key;
-                    S.reviewAnswers[S.pickerFor].source = 'user';
-                    S.reviewAnswers[S.pickerFor].confidence = 1;
-                }
-                showReview();
-            };
-            if (custom !== '') {
-                btn.disabled = true;
-                api('addCustomValue', { label: custom }).then(function (d) {
-                    if (!d.success) { btn.disabled = false; return; }
-                    if (!byKey(d.value.value_key)) S.catalog.push(d.value);
-                    apply(d.value.value_key);
-                });
-            } else {
-                apply(S.pickerSelected);
-            }
+        setTimeout(function () {
+            var st = document.getElementById('cmpStatus');
+            if (st) st.style.opacity = '0';
+        }, 1000);
+        document.getElementById('cmpGo').onclick = function () {
+            track('comparison_start', { values_count: S.candidates.length, pairs_total: total });
+            showDuel();
+        };
+        document.getElementById('cmpRestart').onclick = function () {
+            track('restart');
+            api('restartTest', {}).then(function () { location.href = '/'; });
         };
     }
 
-    /* ── Compare intro ───────────────────────────────────── */
-
-    function showCompareIntro() {
-        var cards = S.top.map(function (v) {
-            var quotes = (S.quotes[v.value_key] || []).slice(0, 2).map(function (t) {
-                return '<div class="ci-quote">„' + esc(t) + '“</div>';
-            }).join('');
-            return '<div class="ci-card"><div class="ci-name">' + esc(upper(v.label_lt)) + '</div>' + quotes + '</div>';
-        }).join('');
-
-        render(
-            '<h1 class="h-display h-screen" style="margin-top:.6rem">' +
-            esc(T('compare.introTitle', { n: S.top.length })) + '</h1>' +
-            '<p class="q-help">' + esc(T('compare.introSub')) + '</p>' +
-            '<div class="ci-grid">' + cards + '</div>' +
-            '<button class="btn-p" id="goBtn">' + esc(T('compare.introCta')) + '</button>' +
-            '<div class="btn-caption">' + esc(T('compare.introCaption')) + '</div>'
-        );
-        document.getElementById('goBtn').onclick = function () { showDuel(); };
-    }
-
-    /* ── Duels ───────────────────────────────────────────── */
+    /* ── 6 · Duels (tap = choose, fast rhythm) ───────────── */
 
     function nextUnanswered() {
         for (var i = 0; i < S.comparisons.length; i++) {
@@ -530,136 +543,110 @@
         return null;
     }
 
-    function duelQuote(key) {
-        var st = S.statements[key];
-        if (st) return st;
-        var v = byKey(key);
-        return v ? (v.meaning_lt || v.label_lt) : key;
+    function mentionsLine(key) {
+        var c = candidate(key);
+        return c && c.mentions && c.mentions.length ? c.mentions.join(' • ') : '';
     }
 
-    function showDuel(pairIndex) {
-        var c = null;
-        if (pairIndex) {
-            S.comparisons.forEach(function (x) { if (+x.pair_index === +pairIndex) c = x; });
-        } else {
-            c = nextUnanswered();
-        }
+    function showDuel() {
+        var c = nextUnanswered();
         if (!c) return;
         if (+c.is_tiebreak === 1) { showTiebreak(c); return; }
 
         var base = S.comparisons.filter(function (x) { return !+x.is_tiebreak; });
         var total = base.length;
-        var answered = base.filter(function (x) { return x.winner_value_key; }).length;
-        var displayNo = Math.min(answered + 1, total);
-        var idxInBase = base.indexOf(c);
-        var prev = idxInBase > 0 ? base[idxInBase - 1] : null;
+        var done = base.filter(function (x) { return x.winner_value_key; }).length;
 
-        function cardHtml(key) {
-            var v = byKey(key);
+        function card(key) {
+            var lbl = (candidate(key) || {}).label_lt || key;
+            var m = mentionsLine(key);
             return '<button class="duel-card-p" data-key="' + esc(key) + '">' +
-                '<div class="duel-name">' + esc(upper(v ? v.label_lt : key)) + '</div>' +
-                '<div class="duel-quote">„' + esc(duelQuote(key)) + '“</div>' +
+                '<div class="duel-name">' + esc(lbl) + '</div>' +
+                (m ? '<div class="duel-mentions">' + esc(m) + '</div>' : '') +
                 '</button>';
         }
 
         render(
-            progressHead(T('compare.progress', { current: displayNo, total: total }),
-                Math.round(answered / total * 100),
-                prev ? function () { showDuel(prev.pair_index); } : null) +
-            '<h1 class="h-display h-screen h-center" style="margin-top:1.6rem">' + esc(T('compare.title')) + '</h1>' +
-            '<p class="sub-p sub-center" style="margin:.5rem 0 1.7rem">' + esc(T('compare.help')) + '</p>' +
-            '<div class="duel-stack">' +
-            cardHtml(c.left_value_key) +
-            '<div class="or-divider">' + esc(T('compare.or')) + '</div>' +
-            cardHtml(c.right_value_key) +
+            progressHead((done + 1) + ' / ' + total, Math.round(done / total * 100), null) +
+            '<h1 class="h1-p h-center" style="margin-top:1.4rem">' + esc(T('duel.title')) + '</h1>' +
+            '<div class="duel-stack" style="margin-top:1.5rem">' +
+            card(c.left_value_key) + card(c.right_value_key) +
             '</div>' +
-            '<div class="duel-caption">' + esc(T('compare.caption')) + '</div>'
+            '<div class="duel-caption">' + esc(T('duel.caption')) + '</div>'
         );
 
-        app.querySelectorAll('.duel-card-p').forEach(function (card) {
-            card.onclick = function () {
+        app.querySelectorAll('.duel-card-p').forEach(function (cardEl) {
+            cardEl.onclick = function () {
                 app.querySelectorAll('.duel-card-p').forEach(function (x) { x.disabled = true; });
-                card.classList.add('chosen');
+                cardEl.insertAdjacentHTML('beforeend',
+                    '<span class="duel-tick">' + CHECK(16) + '</span>');
+                var isLastBase = done + 1 === total;
+                track('pair_choice', {
+                    pair_index: c.pair_index,
+                    chosen_value: (candidate(cardEl.dataset.key) || {}).label_lt || cardEl.dataset.key,
+                    other_value: (candidate(cardEl.dataset.key === c.left_value_key ? c.right_value_key : c.left_value_key) || {}).label_lt,
+                });
                 var req = api('saveComparison', {
                     pair_index: c.pair_index,
-                    winner_value_key: card.dataset.key,
+                    winner_value_key: cardEl.dataset.key,
                 }).then(function (d) {
-                    if (d && d.success) c.winner_value_key = card.dataset.key;
+                    if (d && d.success) c.winner_value_key = cardEl.dataset.key;
                     return d;
                 });
-                afterChoice(c, req);
+                setTimeout(function () {
+                    if (isLastBase) {
+                        render('<div class="duel-last" style="margin-top:5rem;font-size:1.2rem">' +
+                            esc(T('duel.last')) + '</div>');
+                    }
+                    req.then(function (d) {
+                        if (!d || !d.success) { showDuel(); return; }
+                        handleProgress(d.progress);
+                    });
+                }, 230);
             };
         });
     }
 
+    /* ── 7 · Tie-break (only on a true tie) ──────────────── */
+
     function showTiebreak(c) {
-        function cardHtml(key) {
-            var v = byKey(key);
-            return '<div class="tb-card">' +
-                '<div class="tb-name">' + esc(upper(v ? v.label_lt : key)) + '</div>' +
-                '<button class="btn-p" data-key="' + esc(key) + '">' + esc(T('tiebreak.choose')) + '</button>' +
-                '</div>';
+        function card(key) {
+            var lbl = (candidate(key) || {}).label_lt || key;
+            return '<button class="tb-card" data-key="' + esc(key) + '">' +
+                '<div class="tb-name">' + esc(lbl) + '</div></button>';
         }
         render(
             '<div class="tb-chip-wrap"><span class="chip-soft">' + esc(T('tiebreak.chip')) + '</span></div>' +
-            '<h1 class="h-display h-screen h-center">' + esc(T('tiebreak.title')) + '</h1>' +
-            '<p class="sub-p sub-center" style="margin:.5rem 0 1.7rem">' + esc(T('tiebreak.sub')) + '</p>' +
-            cardHtml(c.left_value_key) +
-            '<div class="or-divider">' + esc(T('compare.or')) + '</div>' +
-            cardHtml(c.right_value_key)
+            '<h1 class="h1-p h-center">' + esc(T('tiebreak.title')) + '</h1>' +
+            '<p class="sub-p sub-center" style="margin:.5rem 0 1.5rem">' + esc(T('tiebreak.sub')) + '</p>' +
+            card(c.left_value_key) + card(c.right_value_key) +
+            '<div class="tb-caption">' + esc(T('tiebreak.caption')) + '</div>'
         );
-        app.querySelectorAll('.tb-card .btn-p').forEach(function (btn) {
+        app.querySelectorAll('.tb-card').forEach(function (btn) {
             btn.onclick = function () {
-                app.querySelectorAll('.tb-card .btn-p').forEach(function (x) { x.disabled = true; });
-                var req = api('saveComparison', {
+                app.querySelectorAll('.tb-card').forEach(function (x) { x.disabled = true; });
+                track('tiebreak_choice', {
+                    chosen_value: (candidate(btn.dataset.key) || {}).label_lt || btn.dataset.key,
+                    other_value: (candidate(btn.dataset.key === c.left_value_key ? c.right_value_key : c.left_value_key) || {}).label_lt,
+                });
+                api('saveComparison', {
                     pair_index: c.pair_index,
                     winner_value_key: btn.dataset.key,
                 }).then(function (d) {
-                    if (d && d.success) c.winner_value_key = btn.dataset.key;
-                    return d;
+                    if (!d || !d.success) { showTiebreak(c); return; }
+                    c.winner_value_key = btn.dataset.key;
+                    handleProgress(d.progress);
                 });
-                afterChoice(c, req);
             };
-        });
-    }
-
-    function showResultLoading() {
-        render(
-            '<div class="ai-screen">' +
-            '<div class="ai-mark"><div class="arc"></div><div class="leaf">' + I.leaf + '</div></div>' +
-            '<h1 class="h-display h-screen h-center">' + esc(T('loading.result.title')) + '</h1>' +
-            '<div class="ai-dash"></div>' +
-            '<p class="sub-p sub-center">' + esc(T('loading.result.sub')) + '</p>' +
-            '<div class="ai-chip"><span class="pulse"></span>' + esc(T('loading.result.chip')) + '</div>' +
-            '</div>'
-        );
-    }
-
-    /**
-     * Show the chosen state briefly; if this was the last open duel the server
-     * also generates the result texts (a few seconds) — switch to a loading
-     * screen instead of appearing stuck.
-     */
-    function afterChoice(c, request) {
-        var othersOpen = S.comparisons.some(function (x) {
-            return x !== c && !x.winner_value_key;
-        });
-        var settled = false;
-        if (!othersOpen) {
-            setTimeout(function () { if (!settled) showResultLoading(); }, 400);
-        }
-        request.then(function (d) {
-            settled = true;
-            if (!d || !d.success) { showDuel(c.pair_index); return; }
-            setTimeout(function () { handleProgress(d.progress); }, othersOpen ? 350 : 0);
         });
     }
 
     function handleProgress(p) {
         if (!p) return;
         if (p.state === 'final') {
+            track('quiz_complete');
             S.result = { top: p.top_details, tension: p.tension, meaning: p.meaning };
-            showResult(false);
+            showResult();
         } else if (p.state === 'tiebreak') {
             var exists = S.comparisons.some(function (x) { return +x.is_tiebreak === 1; });
             if (!exists) {
@@ -677,115 +664,156 @@
         }
     }
 
-    /* ── Result ──────────────────────────────────────────── */
+    /* ── 8 · Result ──────────────────────────────────────── */
 
-    function showResult(sent) {
+    function showResult() {
         var r = S.result;
-        var cards = r.top.map(function (v, i) {
-            return '<div class="result-value-card">' +
-                '<div class="rv-kicker">' + esc(T('result.rank' + (i + 1))) + '</div>' +
-                '<div class="rv-name">' + esc(upper(v.label_lt)) + '</div>' +
-                '</div>';
-        }).join('');
-
-        var emailBlock = sent
-            ? '<div class="result-sent-note">' + I.check + ' ' + esc(T('sent.title')) + ' — ' + esc(T('sent.sub')) + '</div>'
-            : '<div class="card-p email-card">' +
-              '<div class="e-title">' + esc(T('result.emailTitle')) + '</div>' +
-              '<div class="e-sub">' + esc(T('result.emailSub')) + '</div>' +
-              '<div class="e-label" id="emailLabel">' + esc(T('result.emailLabel')) + '</div>' +
-              '<input type="email" class="input-plain" id="resEmail" autocomplete="email"' +
-              ' placeholder="' + esc(T('result.emailPlaceholder')) + '">' +
-              '<div class="field-error" id="emailError">' + I.info + '<span></span></div>' +
-              '<label class="check-line" id="consentEmailLine">' +
-              '<input type="checkbox" id="consentEmail"><span>' + esc(T('result.emailConsent')) + '</span></label>' +
-              '<div class="field-error" id="consentError">' + I.info + '<span>' + esc(T('result.errorConsent')) + '</span></div>' +
-              '<button class="btn-p upper" id="sendBtn">' + esc(T('result.emailSend')) + '</button>' +
-              '</div>';
-
+        var v1 = r.top[0] || {}, v2 = r.top[1] || {};
+        track('result_view', { value_1: v1.label_lt, value_2: v2.label_lt });
         render(
-            '<h1 class="h-display h-screen" style="margin-top:.6rem">' + esc(T('result.title')) + '</h1>' +
-            '<p class="q-help" style="margin-bottom:0">' + esc(T('result.sub')) + '</p>' +
-            '<div class="result-dash"></div>' +
-            cards +
-            (r.tension ? '<div class="tension-card">' +
-                '<div class="t-head"><span class="t-icon">' + I.warn + '</span>' +
-                '<span class="t-title">' + esc(T('result.tensionTitle')) + '</span></div>' +
-                '<p>' + esc(r.tension) + '</p></div>' : '') +
-            (r.meaning ? '<div class="meaning-card">' +
-                '<div class="m-title">' + esc(T('result.meaningTitle')) + '</div>' +
+            '<div class="result-chip-wrap"><span class="chip-soft">' + CHECK(11) + ' ' + esc(T('result.chip')) + '</span></div>' +
+            '<h1 class="h1-p">' + esc(T('result.title')) + '</h1>' +
+            '<div class="hero-card">' +
+            '<div class="hero-watermark">' +
+            '<svg width="96" height="55" viewBox="0 0 88 50"><path d="M3 47 L29 9 L43 25 L55 3 L85 47 Z" fill="var(--vt-on-accent)"></path></svg></div>' +
+            '<div class="hero-kicker">' + esc(T('result.rank1')) + '</div>' +
+            '<div class="hero-value">' + esc(String(v1.label_lt || '').toLocaleUpperCase('lt-LT')) + '</div>' +
+            '</div>' +
+            '<div class="second-card"><div class="sc-kicker">' + esc(T('result.rank2')) + '</div>' +
+            '<div class="sc-value">' + esc(String(v2.label_lt || '').toLocaleUpperCase('lt-LT')) + '</div></div>' +
+            (r.meaning ? '<div class="interp-card"><h3>' + esc(T('result.meaningTitle')) + '</h3>' +
                 '<p>' + esc(r.meaning) + '</p></div>' : '') +
-            (S.bookingUrl ? '<a class="btn-p ghost upper" href="' + esc(S.bookingUrl) + '" target="_blank" rel="noopener">' +
-                esc(T('result.cta')) + ' ' + I.arrow + '</a>' : '') +
-            emailBlock
+            (r.tension ? '<div class="interp-card"><h3>' + esc(T('result.tensionTitle')) + '</h3>' +
+                '<p>' + esc(r.tension) + '</p></div>' : '') +
+            '<div class="result-next"><button class="btn-p" id="nextStepBtn">' + esc(T('result.nextCta')) + '</button>' +
+            '<div class="result-caption">' + esc(T('result.nextCaption')) + '</div></div>'
+        );
+        document.getElementById('nextStepBtn').onclick = function () { showNextStep(); };
+    }
+
+    /* ── 9 · Kitas žingsnis (email lives here) ───────────── */
+
+    function showNextStep() {
+        track('next_step_view');
+        var r = S.result || { top: [] };
+        render(
+            '<h1 class="h1-p next-hero">' + esc(T('next.hero')) + '</h1>' +
+            '<p class="next-hero-sub">' + esc(T('next.heroSub')) + '</p>' +
+            '<div class="next-section-title">' + esc(T('next.gapsTitle')) + '</div>' +
+            [1, 2, 3, 4].map(function (i) {
+                return '<div class="gap-row"><span class="q-mark">?</span><span>' + esc(T('next.gap' + i)) + '</span></div>';
+            }).join('') +
+            '<div class="next-section-title">' + esc(T('next.methodTitle')) + '</div>' +
+            '<div class="sage-card"><p>' + esc(T('next.methodBody')) + '</p></div>' +
+            '<div class="red-block">' +
+            '<h2>' + esc(T('next.heroBig')) + '</h2>' +
+            '<p>' + esc(T('next.heroBigSub')) + '</p>' +
+            '<a class="btn-p on-red" id="visionBtn" href="' + esc(S.links.vision || '#') + '" target="_blank" rel="noopener">' +
+            esc(T('next.visionCta')) + '</a>' +
+            '</div>' +
+            '<div class="card-p email-card-n">' +
+            '<h3>' + esc(T('next.emailTitle')) + '</h3>' +
+            '<div class="email-row-n">' +
+            '<input type="email" class="input-plain" id="leadEmail" autocomplete="email" placeholder="' + esc(T('next.emailPlaceholder')) + '">' +
+            '<button class="btn-p" id="leadBtn" style="width:auto;padding:.9rem 1.4rem">' + esc(T('next.emailCta')) + '</button>' +
+            '</div>' +
+            '<div class="field-error" id="leadError"></div>' +
+            '<label class="check-line" id="leadConsentLine"><input type="checkbox" id="leadConsent">' +
+            '<span>' + esc(T('next.consentRequired')) + '</span></label>' +
+            '<label class="check-line" style="margin-top:.5rem"><input type="checkbox" id="leadMarketing">' +
+            '<span>' + esc(T('next.consentMarketing')) + '</span></label>' +
+            '<div class="field-error" id="leadConsentError">' + esc(T('error.consent')) + '</div>' +
+            '<a class="link-quiet" href="/privatumas" data-policy="privacy" style="display:inline-block;margin-top:.8rem">' +
+            esc(T('policy.title')) + '</a>' +
+            '</div>' +
+            '<div class="next-links">' +
+            '<div>' + esc(T('next.deeper')) + ' <a href="' + esc(S.links.session || '#') + '" target="_blank" rel="noopener" id="sessionLink">' +
+            esc(T('next.sessionLink')) + '</a></div>' +
+            '<div>' + esc(T('next.moreInsights')) + ' <a href="' + esc(S.links.facebook || '#') + '" target="_blank" rel="noopener" id="fbLink">' +
+            esc(T('next.followFb')) + '</a></div>' +
+            '</div>' +
+            '<div class="next-footer">' + esc(T('next.footer')) +
+            '<div class="mark">' + MOUNTAIN(24, 14) + '</div>' + esc(T('next.tagline')) + '</div>'
         );
 
-        if (sent) return;
+        document.getElementById('visionBtn').addEventListener('click', function () { track('vision_method_click'); });
+        document.getElementById('sessionLink').addEventListener('click', function () { track('session_info_click'); });
+        document.getElementById('fbLink').addEventListener('click', function () { track('follow_click', { source: 'next_step' }); });
 
-        document.getElementById('sendBtn').onclick = function () {
-            var emailEl = document.getElementById('resEmail');
-            var emailErr = document.getElementById('emailError');
-            var consentEl = document.getElementById('consentEmail');
-            var consentErr = document.getElementById('consentError');
-            var label = document.getElementById('emailLabel');
-            var line = document.getElementById('consentEmailLine');
-            emailErr.classList.remove('show');
+        document.getElementById('leadBtn').onclick = function () {
+            var emailEl = document.getElementById('leadEmail');
+            var err = document.getElementById('leadError');
+            var consentEl = document.getElementById('leadConsent');
+            var consentErr = document.getElementById('leadConsentError');
+            var line = document.getElementById('leadConsentLine');
+            err.classList.remove('show');
             consentErr.classList.remove('show');
             emailEl.classList.remove('invalid');
-            label.classList.remove('invalid');
             line.classList.remove('invalid');
 
             var email = emailEl.value.trim();
             var bad = false;
-            if (email === '') {
-                emailErr.querySelector('span').textContent = T('result.errorEmpty');
-                emailErr.classList.add('show');
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                err.textContent = T('error.email');
+                err.classList.add('show');
                 emailEl.classList.add('invalid');
-                label.classList.add('invalid');
-                bad = true;
-            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                emailErr.querySelector('span').textContent = T('result.errorInvalid');
-                emailErr.classList.add('show');
-                emailEl.classList.add('invalid');
-                label.classList.add('invalid');
+                track('submit_error', { reason: 'invalid_email' });
                 bad = true;
             }
             if (!consentEl.checked) {
                 consentErr.classList.add('show');
                 line.classList.add('invalid');
+                if (!bad) track('submit_error', { reason: 'no_consent' });
                 bad = true;
             }
             if (bad) return;
 
+            var marketing = document.getElementById('leadMarketing').checked;
             var btn = this;
             btn.disabled = true;
-            api('saveResultEmail', { email: email, consent: true }).then(function (d) {
+            api('saveLead', { email: email, consent: true, marketing_opt_in: marketing }).then(function (d) {
                 if (!d.success) {
                     btn.disabled = false;
-                    emailErr.querySelector('span').textContent = d.message || T('common.errorGeneric');
-                    emailErr.classList.add('show');
+                    err.textContent = d.message || T('common.errorGeneric');
+                    err.classList.add('show');
+                    track('submit_error', { reason: 'api_error' });
                     return;
                 }
+                var v1 = (S.result && S.result.top[0]) || {};
+                var v2 = (S.result && S.result.top[1]) || {};
+                track('email_submit', { value_1: v1.label_lt, value_2: v2.label_lt, marketing_opt_in: marketing });
+                if (window.fbq) fbq('track', 'Lead');
+                S.sentEmail = email;
                 showSent();
             });
         };
     }
 
+    /* ── 10 · Sent ───────────────────────────────────────── */
+
     function showSent() {
         render(
             '<div class="sent-screen">' +
-            '<div class="sent-icon">' +
-            '<div class="check-circle">' + I.checkBig + '</div>' +
-            '<div class="plane">' + I.plane + '</div>' +
-            '</div>' +
-            '<h1 class="h-display h-hero">' + esc(T('sent.title')) + '</h1>' +
-            '<p class="sub-p sub-center" style="margin-top:.8rem">' + esc(T('sent.sub')) + '</p>' +
-            '<div class="ai-dash"></div>' +
-            '<button class="btn-p upper" id="doneBtn">' + esc(T('sent.done')) + '</button>' +
-            '<div class="btn-caption">' + esc(T('sent.caption')) + '</div>' +
+            '<div class="sent-mark">' + MOUNTAIN(94, 54) +
+            '<span class="tick-badge">' + CHECK(14, 'var(--vt-on-accent)') + '</span></div>' +
+            '<h1 class="h1-p h-center sent-line">' + esc(T('sent.title')) + '</h1>' +
+            '<p class="sub-p sub-center sent-line d1" style="margin-top:.6rem">' +
+            (S.sentEmail
+                ? esc(T('sent.to', { email: '' })).replace('{email}', '') + '<span class="sent-email">' + esc(S.sentEmail) + '</span>'
+                : esc(T('sent.toFallback'))) + '</p>' +
+            '<p class="sub-p sub-center sent-line d2" style="margin-top:.4rem">' + esc(T('sent.thanks')) + '</p>' +
+            '<hr class="sent-hr">' +
+            '<div class="sent-follow"><div class="f-title">' + esc(T('sent.follow')) + '</div>' +
+            '<a href="' + esc(S.links.facebook || '#') + '" target="_blank" rel="noopener" id="sentFb">' + esc(T('sent.followLink')) + '</a></div>' +
+            '<div class="sent-spam">' + esc(T('sent.spam')) + '</div>' +
+            '<button class="btn-p ghost" id="againBtn" style="max-width:280px">' + esc(T('sent.again')) + '</button>' +
             '</div>'
         );
-        document.getElementById('doneBtn').onclick = function () { showResult(true); };
+        document.getElementById('sentFb').addEventListener('click', function () { track('follow_click', { source: 'sent' }); });
+        document.getElementById('againBtn').onclick = function () {
+            track('restart');
+            api('restartTest', {}).then(function () { location.href = '/'; });
+        };
     }
 
     /* ── Resume ──────────────────────────────────────────── */
@@ -802,42 +830,27 @@
         for (var k in S.answers) {
             S.answers[k] = S.answers[k].filter(function (v) { return v !== undefined; });
         }
-        S.statements = s.statements || {};
+        S.candidates = s.candidates || [];
+        S.comparisons = s.comparisons || [];
 
         switch (s.status) {
             case 'result_ready':
             case 'email_captured':
                 if (s.result) {
                     S.result = s.result;
-                    showResult(!!s.email_sent);
+                    if (s.status === 'email_captured') { showSent(); } else { showResult(); }
                     return;
                 }
                 showIntro(); return;
             case 'comparing': {
-                var keys = s.top5 || [];
-                S.top = keys.map(byKey).filter(Boolean);
-                S.comparisons = s.comparisons || [];
-                // rebuild per-value quotes from confirmed answers
-                S.quotes = {};
-                (s.answers || []).forEach(function (a) {
-                    if (!a.confirmed_value_key) return;
-                    (S.quotes[a.confirmed_value_key] = S.quotes[a.confirmed_value_key] || []).push(a.answer_text);
-                });
-                if (nextUnanswered()) { showDuel(); } else { showCompareIntro(); }
+                var answered = S.comparisons.some(function (c) { return c.winner_value_key; });
+                if (nextUnanswered()) {
+                    if (answered) { showDuel(); } else { showComparison(); }
+                } else { showComparison(); }
                 return;
             }
-            case 'ai_suggested':
-                S.reviewAnswers = (s.answers || []).map(function (a) {
-                    return {
-                        id: a.id, question_key: a.question_key, answer_text: a.answer_text,
-                        suggested_value_key: a.suggested_value_key,
-                        confirmed_value_key: a.confirmed_value_key,
-                        confidence: a.confidence, source: 'ai',
-                    };
-                });
-                showReview(); return;
             case 'answering': {
-                // land on the first question that has no saved answers yet
+                // land on the first question without answers (session restore)
                 var idx = 0;
                 for (var i = 0; i < S.questions.length; i++) {
                     idx = i;
@@ -856,6 +869,7 @@
 
     /* ── Boot ────────────────────────────────────────────── */
 
+    attribution(); // persist first touch
     api('getTestBootstrap', null, 'GET').then(function (d) {
         if (!d.success) {
             app.innerHTML = '<div class="test-loading">' + esc(T('common.errorGeneric')) + '</div>';
@@ -863,9 +877,9 @@
         }
         S.texts = d.texts;
         S.questions = d.questions;
-        S.catalog = d.catalog;
-        S.bookingUrl = d.booking_url;
+        S.links = d.links || {};
         S.session = d.session;
+        track('view');
         resume();
     });
 })();

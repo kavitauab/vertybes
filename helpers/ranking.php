@@ -63,45 +63,46 @@ function rankingScores(array $comparisons, array $keys) {
 }
 
 /**
- * Decide the final result or request a tie-breaker.
+ * Decide the final top-2 (v3 silent tie rules, PERDAVIMAS.md):
+ *   1) total duel wins, 2) original frequency in answers,
+ *   3) only if still tied — ONE extra direct comparison (tie-break screen).
+ * The result is always exactly two values (value_1 dominant).
  *
- * @param array $scores        [key => wins] over the 10 base duels
- * @param array|null $tiebreak answered tie-break row ['left','right','winner'] or null
- * @return array ['status' => 'final', 'top' => [keys]]        — result ready (2+ keys)
- *               ['status' => 'tiebreak', 'pair' => [a, b]]    — needs one more duel
+ * @param array $scores   [key => wins]
+ * @param array $freq     [key => original answer frequency/evidence strength]
+ * @param array $order    [key => selection order index] (stable last resort)
+ * @param array|null $tiebreak answered tie-break ['left','right','winner'] or null
+ * @return array ['status' => 'final', 'top' => [k1, k2]]
+ *               ['status' => 'tiebreak', 'pair' => [a, b]]
  */
-function rankingResolve(array $scores, $tiebreak = null) {
-    arsort($scores);
+function rankingResolve(array $scores, array $freq = [], array $order = [], $tiebreak = null) {
     $keys = array_keys($scores);
-    $vals = array_values($scores);
+    usort($keys, function ($a, $b) use ($scores, $freq, $order) {
+        if ($scores[$a] !== $scores[$b]) return $scores[$b] <=> $scores[$a];
+        $fa = $freq[$a] ?? 0; $fb = $freq[$b] ?? 0;
+        if ($fa !== $fb) return $fb <=> $fa;
+        return ($order[$a] ?? 0) <=> ($order[$b] ?? 0);
+    });
 
-    $s2 = $vals[1];                       // score of rank-2
-    $definite = [];                       // strictly above the boundary score
-    $tied = [];                           // exactly at the boundary score
-    foreach ($scores as $k => $s) {
-        if ($s > $s2) $definite[] = $k;
-        elseif ($s === $s2) $tied[] = $k;
-    }
-    $slots = 2 - count($definite);
-
-    if (count($tied) === $slots) {
-        return ['status' => 'final', 'top' => array_merge($definite, $tied)];
-    }
-
-    if (count($tied) === 2 && $slots === 1) {
-        // Exactly two compete for the last slot → tie-breaker duel decides.
-        if ($tiebreak && !empty($tiebreak['winner'])) {
-            $pairSet = [$tiebreak['left'], $tiebreak['right']];
-            sort($pairSet);
-            $tiedSet = $tied;
-            sort($tiedSet);
-            if ($pairSet === $tiedSet && in_array($tiebreak['winner'], $tied, true)) {
-                return ['status' => 'final', 'top' => array_merge($definite, [$tiebreak['winner']])];
+    // A tie-break duel is needed only when rank-2 and rank-3 are inseparable
+    // by BOTH silent rules (same wins AND same frequency).
+    if (count($keys) > 2) {
+        $k2 = $keys[1]; $k3 = $keys[2];
+        $hardTie = $scores[$k2] === $scores[$k3] &&
+                   ($freq[$k2] ?? 0) === ($freq[$k3] ?? 0);
+        if ($hardTie) {
+            if ($tiebreak && !empty($tiebreak['winner'])) {
+                $pairSet = [$tiebreak['left'], $tiebreak['right']];
+                sort($pairSet);
+                $tiedSet = [$k2, $k3];
+                sort($tiedSet);
+                if ($pairSet === $tiedSet && in_array($tiebreak['winner'], $tiedSet, true)) {
+                    return ['status' => 'final', 'top' => [$keys[0], $tiebreak['winner']]];
+                }
             }
+            return ['status' => 'tiebreak', 'pair' => [$k2, $k3]];
         }
-        return ['status' => 'tiebreak', 'pair' => $tied];
     }
 
-    // 3+ tied at the boundary (or tie across both slots) → show them all.
-    return ['status' => 'final', 'top' => array_merge($definite, $tied)];
+    return ['status' => 'final', 'top' => [$keys[0], $keys[1]]];
 }
