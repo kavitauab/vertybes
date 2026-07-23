@@ -71,7 +71,7 @@ class DesignUpdateMigration {
             'compare_values_count' => '6',
             'min_distinct_values'  => '6',
             'email_from_name'      => 'Vertybių testas',
-            'email_from_address'   => 'noreply@vertybes.gentrula.lt',
+            'email_from_address'   => 'noreply@vertybes.lt',
             'email_reply_to'       => 'tomas@petrikaitis.com',
         ];
         foreach ($settings as $k => $v) {
