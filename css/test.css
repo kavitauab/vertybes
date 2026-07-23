@@ -4,7 +4,8 @@
 .screen { animation: vtRise .3s ease both; }
 
 /* ── 1 · Intro ───────────────────────────────────────────── */
-.intro-hero { margin-top: 1.6rem; }
+.intro-logo { text-align: center; margin: 1.3rem 0 1.4rem; }
+.intro-hero { margin-top: .4rem; }
 .intro-sub { margin: .9rem 0 1.5rem; }
 .intro-checks { margin-bottom: 1.6rem; }
 .intro-check {
@@ -114,20 +115,20 @@
   text-align: center; color: var(--vt-muted); font-size: .9rem;
   margin: 1rem 0; min-height: 1.4rem;
 }
-.cmp-stack { display: flex; flex-direction: column; gap: .8rem; margin: 1.1rem 0 0; }
+.cmp-stack { display: flex; flex-direction: column; gap: .55rem; margin: .9rem 0 0; }
 .cmp-card {
   background: var(--vt-card);
-  border: none; border-radius: 16px;
+  border: none; border-radius: 14px;
   box-shadow: 0 2px 8px rgba(64,32,26,.05), 0 14px 30px -16px rgba(64,32,26,.14);
-  padding: 1.05rem 1.2rem;
+  padding: .8rem 1rem .85rem;
   opacity: 0; animation: vtCardIn .45s ease both;
 }
-.cmp-card.first { padding: 1.3rem 1.35rem; }
-.cmp-card .cmp-name-row { display: flex; align-items: center; gap: .55rem; margin-bottom: .55rem; }
-.cmp-card .cmp-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.cmp-card.first { padding: .95rem 1.1rem 1rem; }
+.cmp-card .cmp-name-row { display: flex; align-items: center; margin-bottom: .4rem; }
+.cmp-card .cmp-dot { display: none; }
 .cmp-card .cmp-name { font-weight: 500; font-size: 1rem; color: var(--vt-text); }
-.cmp-card.first .cmp-name { font-size: 1.13rem; }
-.cmp-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.cmp-card.first .cmp-name { font-size: 1.1rem; }
+.cmp-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
 .cmp-chip {
   background: var(--vt-bg);
   border-radius: 7px;
@@ -142,6 +143,14 @@
 .cmp-restart { text-align: center; margin-top: 1.2rem; }
 
 /* ── 6 · Duelis ──────────────────────────────────────────── */
+.duel-counter-wrap { text-align: center; margin-top: 1.1rem; }
+.duel-counter {
+  display: inline-block;
+  background: var(--vt-soft);
+  border-radius: 999px;
+  padding: .4rem 1.15rem;
+  font-size: .95rem; font-weight: 500; color: var(--vt-text);
+}
 .duel-help { color: var(--vt-muted); font-size: .92rem; text-align: center; margin: .4rem 0 1.5rem; }
 .duel-stack { display: flex; flex-direction: column; gap: .9rem; }
 .duel-card-p {
@@ -221,15 +230,20 @@
   display: flex; gap: .7rem; align-items: flex-start;
   padding: .45rem 0; font-size: .93rem; color: var(--vt-text);
 }
-.gap-row .q-mark {
+.gap-row .gap-dot {
   flex-shrink: 0;
-  width: 22px; height: 22px; border-radius: 50%;
-  background: rgba(217,67,44,.1); color: var(--vt-accent);
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--vt-soft);
   display: flex; align-items: center; justify-content: center;
-  font-size: .8rem; font-weight: 500;
+  margin-top: .1rem;
 }
-.next-section-title { font-weight: 500; font-size: 1.05rem; margin: 1.5rem 0 .5rem; }
-.sage-card { background: var(--vt-sage); border: 1px solid var(--vt-soft); border-radius: 16px; padding: 1.15rem 1.3rem; margin: .8rem 0 1.4rem; }
+.gap-row .gap-dot i { width: 8px; height: 8px; border-radius: 50%; background: var(--vt-accent); }
+.next-section-title { font-weight: 500; font-size: 1.05rem; margin: 1.5rem 0 .5rem; color: var(--vt-accent); }
+.sage-card {
+  display: flex; gap: .8rem; align-items: flex-start;
+  background: var(--vt-soft); border: none; border-radius: 16px;
+  padding: 1.15rem 1.3rem; margin: .8rem 0 1.4rem;
+}
 .sage-card p { color: var(--vt-text); font-size: .95rem; }
 .red-block {
   position: relative; overflow: hidden;

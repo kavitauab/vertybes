@@ -45,7 +45,7 @@ a { color: var(--vt-accent); } a:hover { color: var(--vt-accent-dark); }
 }
 .topbar-p .wordmark {
   display: inline-flex; align-items: center; gap: .55rem;
-  font-weight: 500; font-size: 1.02rem; color: var(--vt-text);
+  font-weight: 500; font-size: 1.02rem; color: var(--vt-accent);
   text-decoration: none; letter-spacing: .01em;
 }
 
@@ -63,7 +63,7 @@ a { color: var(--vt-accent); } a:hover { color: var(--vt-accent-dark); }
   font-weight: 500;
   font-size: clamp(1.5rem, 5vw, 1.85rem);
   line-height: 1.22;
-  color: var(--vt-text);
+  color: var(--vt-accent);
   letter-spacing: -.01em;
   text-wrap: balance;
 }
@@ -242,8 +242,9 @@ input::placeholder { color: var(--vt-tan); }
   font-size: .9rem; margin-bottom: 1.25rem;
 }
 
-/* ── Footer ──────────────────────────────────────────────── */
+/* ── Footer (hidden while the test is in progress) ───────── */
 .footer-p { text-align: center; padding: 1.3rem; font-size: .8rem; color: var(--vt-muted); }
+body.in-test .footer-p { display: none; }
 .footer-p a, .footer-p button { color: var(--vt-muted); }
 
 .success-note {

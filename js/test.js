@@ -47,7 +47,8 @@
             .then(function (r) { return r.json(); })
             .catch(function () { return { success: false, message: T('common.errorGeneric') }; });
     }
-    function render(html) {
+    function render(html, inTest) {
+        document.body.classList.toggle('in-test', !!inTest);
         app.innerHTML = '<div class="screen">' + html + '</div>';
         window.scrollTo({ top: 0 });
     }
@@ -126,8 +127,16 @@
 
     function showIntro() {
         render(
-            '<h1 class="h1-p intro-hero">' + esc(T('intro.hero')) + '</h1>' +
-            '<p class="sub-p intro-sub">' + esc(T('intro.sub')) + '</p>' +
+            '<div class="intro-logo">' +
+            '<svg width="150" height="150" viewBox="0 0 148 148">' +
+            '<circle cx="74" cy="74" r="74" fill="var(--vt-soft)" opacity=".55"></circle>' +
+            '<path d="M28 108 L64 42 L82 66 L96 34 L134 108 Z" fill="var(--vt-accent)"></path>' +
+            '<path d="M96 34 L103 45 L96 49 L89 44 Z" fill="var(--vt-bg)"></path>' +
+            '<ellipse cx="40" cy="94" rx="52" ry="14" fill="var(--vt-bg)" opacity=".85"></ellipse>' +
+            '<ellipse cx="104" cy="106" rx="48" ry="13" fill="var(--vt-bg)" opacity=".45"></ellipse>' +
+            '</svg></div>' +
+            '<h1 class="h1-p h-center intro-hero">' + esc(T('intro.hero')) + '</h1>' +
+            '<p class="sub-p sub-center intro-sub">' + esc(T('intro.sub')) + '</p>' +
             '<div class="card-p intro-checks">' +
             [1, 2, 3, 4].map(function (i) {
                 return '<div class="intro-check">' + CHECK(14) + '<span>' + esc(T('intro.bullet' + i)) + '</span></div>';
@@ -285,8 +294,18 @@
             '<h3>' + esc(T('gate.title')) + '</h3>' +
             '<p>' + esc(T('gate.b1')) + '</p><p>' + esc(T('gate.b2')) + '</p><p>' + esc(T('gate.b3')) + '</p>' +
             '<button class="btn-p" id="gateBtn">' + esc(T('gate.cta')) + '</button>' +
-            '</div></div>'
+            '</div></div>',
+            true
         );
+
+        // iOS: keep the focused field visible above the keyboard accessory bar
+        document.getElementById('answerStack').addEventListener('focusin', function (e) {
+            if (e.target.tagName === 'INPUT') {
+                setTimeout(function () {
+                    e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }, 300);
+            }
+        });
 
         var stack = document.getElementById('answerStack');
 
@@ -439,7 +458,8 @@
             '</div>' +
             '<div class="ai-edit" id="aiEdit"><button class="link-quiet" id="editAnswers">' + esc(T('analysis.edit')) + '</button></div>' +
             '<div class="ai-seed">' + esc(T('analysis.seed')) + '</div>' +
-            '</div>'
+            '</div>',
+            true
         );
         setTimeout(function () { var e = document.getElementById('st1'); if (e) e.classList.add('on'); }, 300);
         setTimeout(function () { var e = document.getElementById('st2'); if (e) e.classList.add('on'); }, 1400);
@@ -518,7 +538,8 @@
             '<button class="btn-p" id="cmpGo">' + esc(T('comparison.cta')) + '</button>' +
             '<div class="cmp-caption">' + esc(T('comparison.caption')) + '</div>' +
             '<div class="cmp-restart"><button class="link-quiet" id="cmpRestart">' + esc(T('comparison.restart')) + '</button></div>' +
-            '</div>'
+            '</div>',
+            true
         );
         setTimeout(function () {
             var st = document.getElementById('cmpStatus');
@@ -567,12 +588,14 @@
         }
 
         render(
-            progressHead((done + 1) + ' / ' + total, Math.round(done / total * 100), null) +
-            '<h1 class="h1-p h-center" style="margin-top:1.4rem">' + esc(T('duel.title')) + '</h1>' +
-            '<div class="duel-stack" style="margin-top:1.5rem">' +
+            '<div class="duel-counter-wrap"><span class="duel-counter">' + (done + 1) + ' / ' + total + '</span></div>' +
+            // the framing heading appears only on the first duel (go-live #5)
+            (done === 0 ? '<h1 class="h1-p h-center" style="margin-top:.9rem">' + esc(T('duel.title')) + '</h1>' : '') +
+            '<div class="duel-stack" style="margin-top:1.4rem">' +
             card(c.left_value_key) + card(c.right_value_key) +
             '</div>' +
-            '<div class="duel-caption">' + esc(T('duel.caption')) + '</div>'
+            '<div class="duel-caption">' + esc(T('duel.caption')) + '</div>',
+            true
         );
 
         app.querySelectorAll('.duel-card-p').forEach(function (cardEl) {
@@ -594,16 +617,72 @@
                     return d;
                 });
                 setTimeout(function () {
-                    if (isLastBase) {
-                        render('<div class="duel-last" style="margin-top:5rem;font-size:1.2rem">' +
-                            esc(T('duel.last')) + '</div>');
-                    }
+                    if (isLastBase) { finalizeFlow(req); return; }
                     req.then(function (d) {
                         if (!d || !d.success) { showDuel(); return; }
                         handleProgress(d.progress);
                     });
                 }, 230);
             };
+        });
+    }
+
+    /**
+     * Go-live timing rules: "Štai ir viskas" beat 0.5–0.7 s, interpretation
+     * requested immediately after the final tap resolves, "Skaičiuojame…"
+     * state only if we wait longer than the beat, 8 s fallback shows the
+     * result without interpretation blocks (they arrive by email).
+     */
+    function finalizeFlow(saveReq) {
+        render('<div class="duel-last" style="margin-top:5rem;font-size:1.2rem">' + esc(T('duel.last')) + '</div>', true);
+        var beatDone = new Promise(function (res) { setTimeout(res, 600); });
+        saveReq.then(function (d) {
+            if (!d || !d.success) { showDuel(); return; }
+            var p = d.progress;
+            if (p.state === 'tiebreak') { beatDone.then(function () { handleProgress(p); }); return; }
+            if (p.state !== 'final') { beatDone.then(function () { handleProgress(p); }); return; }
+
+            track('quiz_complete');
+            S.result = { top: p.top_details, tension: p.tension, meaning: p.meaning };
+            var interpReady = !!p.tension;
+            var shown = false;
+            var fallbackTimer = null;
+
+            function showIt(withNote) {
+                if (shown) return;
+                shown = true;
+                if (fallbackTimer) clearTimeout(fallbackTimer);
+                showResult(withNote);
+            }
+
+            if (!interpReady) {
+                // fire immediately — runs while the beat plays
+                api('getInterpretation', {}).then(function (r) {
+                    if (r && r.success) {
+                        S.result.tension = r.tension;
+                        S.result.meaning = r.meaning;
+                        if (shown) { showResult(false); }   // arrived late → fill the blocks in
+                        else { showIt(false); }
+                    }
+                });
+            }
+
+            beatDone.then(function () {
+                if (interpReady || S.result.tension) { showIt(false); return; }
+                // waited past the beat → animated calculating state, 8 s cap
+                render(
+                    '<div class="ai-screen" style="padding-top:3rem">' +
+                    '<div class="ai-mountain">' +
+                    '<svg width="176" height="100" viewBox="0 0 88 50" style="display:block;margin:0 auto">' +
+                    '<path d="M3 47 L29 9 L43 25 L55 3 L85 47 Z" fill="none" stroke="var(--vt-accent)" stroke-width="2.5" ' +
+                    'stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="340" ' +
+                    'style="animation:vtDraw 3.4s ease infinite"></path></svg></div>' +
+                    '<h1 class="h1-p h-center">' + esc(S.texts['calc.title'] || 'Skaičiuojame tavo rezultatą...') + '</h1>' +
+                    '</div>',
+                    true
+                );
+                fallbackTimer = setTimeout(function () { showIt(true); }, 8000);
+            });
         });
     }
 
@@ -646,7 +725,18 @@
         if (p.state === 'final') {
             track('quiz_complete');
             S.result = { top: p.top_details, tension: p.tension, meaning: p.meaning };
-            showResult();
+            if (!S.result.tension) {
+                api('getInterpretation', {}).then(function (r) {
+                    if (r && r.success) {
+                        S.result.tension = r.tension;
+                        S.result.meaning = r.meaning;
+                        showResult(false);
+                    }
+                });
+                showResult(true);
+            } else {
+                showResult(false);
+            }
         } else if (p.state === 'tiebreak') {
             var exists = S.comparisons.some(function (x) { return +x.is_tiebreak === 1; });
             if (!exists) {
@@ -666,7 +756,7 @@
 
     /* ── 8 · Result ──────────────────────────────────────── */
 
-    function showResult() {
+    function showResult(interpPending) {
         var r = S.result;
         var v1 = r.top[0] || {}, v2 = r.top[1] || {};
         track('result_view', { value_1: v1.label_lt, value_2: v2.label_lt });
@@ -685,6 +775,10 @@
                 '<p>' + esc(r.meaning) + '</p></div>' : '') +
             (r.tension ? '<div class="interp-card"><h3>' + esc(T('result.tensionTitle')) + '</h3>' +
                 '<p>' + esc(r.tension) + '</p></div>' : '') +
+            (interpPending && !r.meaning
+                ? '<div class="interp-card"><p>' +
+                  esc(S.texts['result.interpLater'] || 'Išsamią interpretaciją atsiųsime el. paštu.') + '</p></div>'
+                : '') +
             '<div class="result-next"><button class="btn-p" id="nextStepBtn">' + esc(T('result.nextCta')) + '</button>' +
             '<div class="result-caption">' + esc(T('result.nextCaption')) + '</div></div>'
         );
@@ -701,10 +795,11 @@
             '<p class="next-hero-sub">' + esc(T('next.heroSub')) + '</p>' +
             '<div class="next-section-title">' + esc(T('next.gapsTitle')) + '</div>' +
             [1, 2, 3, 4].map(function (i) {
-                return '<div class="gap-row"><span class="q-mark">?</span><span>' + esc(T('next.gap' + i)) + '</span></div>';
+                return '<div class="gap-row"><span class="gap-dot"><i></i></span><span>' + esc(T('next.gap' + i)) + '</span></div>';
             }).join('') +
             '<div class="next-section-title">' + esc(T('next.methodTitle')) + '</div>' +
-            '<div class="sage-card"><p>' + esc(T('next.methodBody')) + '</p></div>' +
+            '<div class="sage-card">' + MOUNTAIN(30, 17, 'style="flex-shrink:0;margin-top:.2rem"') +
+            '<p>' + esc(T('next.methodBody')) + '</p></div>' +
             '<div class="red-block">' +
             '<h2>' + esc(T('next.heroBig')) + '</h2>' +
             '<p>' + esc(T('next.heroBigSub')) + '</p>' +

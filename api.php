@@ -323,10 +323,11 @@ try {
         case 'saveSettings': {
             requireAdminMutation();
             $in = getJsonInput();
-            $allowed = ['site_name','waitlist_mode','booking_url','openai_api_key','openai_model',
-                        'ai_mock_mode','ai_system_prompt','ai_prompt_version',
-                        'privacy_policy_version','cookie_policy_version',
-                        'min_distinct_values','answers_per_question_max'];
+            $allowed = ['site_name','waitlist_mode','consent_version',
+                        'openai_api_key','openai_model','ai_mock_mode',
+                        'ml_group_test','ml_group_marketing',
+                        'vision_url','vision_session_url','facebook_url',
+                        'ga4_id','meta_pixel_id','clarity_id'];
             $saved = [];
             foreach ($allowed as $k) {
                 if (!array_key_exists($k, $in)) continue;
@@ -805,23 +806,37 @@ try {
                 'answered_at' => date('Y-m-d H:i:s'),
             ], 'id = ?', [$row['id']]);
 
+            // Fast path (go-live req.): resolve locally, NO AI here — the client
+            // calls getInterpretation in parallel right after the final tap
             $state = tfResolveState($db, $session);
             if ($state['state'] === 'final') {
                 $state['top_details'] = tfValueDetails($db, $state['top']);
-                $r = $db->fetchOne("SELECT * FROM session_results WHERE session_id = ?", [$session['id']]);
-                if ($r && $r['tension_text'] === null) {
-                    $pair = tfPairText($db, $state['top_details']);
-                    $db->update('session_results', [
-                        'tension_text' => $pair['tension'],
-                        'meaning_text' => $pair['meaning'],
-                    ], 'session_id = ?', [$session['id']]);
-                    $r['tension_text'] = $pair['tension'];
-                    $r['meaning_text'] = $pair['meaning'];
-                }
-                $state['tension'] = $r['tension_text'] ?? '';
-                $state['meaning'] = $r['meaning_text'] ?? '';
+                $r = $db->fetchOne(
+                    "SELECT tension_text, meaning_text FROM session_results WHERE session_id = ?",
+                    [$session['id']]);
+                $state['tension'] = $r['tension_text'] ?? null;   // null = not generated yet
+                $state['meaning'] = $r['meaning_text'] ?? null;
             }
             jsonSuccess(['progress' => $state]);
+        }
+
+        case 'getInterpretation': {
+            requirePost();
+            require_once __DIR__ . '/helpers/testflow.php';
+            $session = requireTestSession();
+            $r = $db->fetchOne("SELECT * FROM session_results WHERE session_id = ?", [$session['id']]);
+            if (!$r) jsonError('Rezultato dar nėra', 400);
+            if ($r['tension_text'] === null) {
+                $top = tfValueDetails($db, json_decode($r['top_keys_json'], true) ?: []);
+                $pair = tfPairText($db, $top);
+                $db->update('session_results', [
+                    'tension_text' => $pair['tension'],
+                    'meaning_text' => $pair['meaning'],
+                ], 'session_id = ?', [$session['id']]);
+                $r['tension_text'] = $pair['tension'];
+                $r['meaning_text'] = $pair['meaning'];
+            }
+            jsonSuccess(['tension' => $r['tension_text'], 'meaning' => $r['meaning_text']]);
         }
 
         case 'getResult': {
