@@ -5,6 +5,10 @@ class Database {
     private $db;
 
     public function __construct() {
+        $this->connect();
+    }
+
+    private function connect() {
         try {
             $dsn = 'mysql:host=' . MYSQL_HOST . ';port=' . MYSQL_PORT
                  . ';dbname=' . MYSQL_DATABASE . ';charset=utf8mb4';
@@ -24,13 +28,34 @@ class Database {
         }
     }
 
+    /**
+     * Shared-hosting MySQL kills idle connections while long API calls
+     * (OpenAI, ~20s) are in flight — "2006 server has gone away". Reconnect
+     * and retry once, but never inside a transaction (state would be lost).
+     */
+    private function isGoneAway(PDOException $e) {
+        $m = $e->getMessage();
+        return strpos($m, 'server has gone away') !== false
+            || strpos($m, 'Lost connection') !== false;
+    }
+
     public function getConnection() { return $this->db; }
     public function now() { return date('Y-m-d H:i:s'); }
 
     public function query($sql, $params = []) {
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt;
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            return $stmt;
+        } catch (PDOException $e) {
+            if ($this->isGoneAway($e) && !$this->db->inTransaction()) {
+                $this->connect();
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute($params);
+                return $stmt;
+            }
+            throw $e;
+        }
     }
 
     public function fetchAll($sql, $params = []) {
@@ -44,9 +69,7 @@ class Database {
     public function insert($table, array $data) {
         $columns = implode(', ', array_keys($data));
         $placeholders = ':' . implode(', :', array_keys($data));
-        $sql = "INSERT INTO `$table` ($columns) VALUES ($placeholders)";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($data);
+        $this->query("INSERT INTO `$table` ($columns) VALUES ($placeholders)", $data);
         return $this->db->lastInsertId();
     }
 
@@ -58,14 +81,11 @@ class Database {
             $setParams[] = $val;
         }
         $sql = "UPDATE `$table` SET " . implode(', ', $setParts) . " WHERE $where";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute(array_merge($setParams, $whereParams));
+        return (bool)$this->query($sql, array_merge($setParams, $whereParams));
     }
 
     public function delete($table, $where, array $params = []) {
-        $sql = "DELETE FROM `$table` WHERE $where";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute($params);
+        return (bool)$this->query("DELETE FROM `$table` WHERE $where", $params);
     }
 
     public function batchInsert($table, array $rows, $chunkSize = 500) {
