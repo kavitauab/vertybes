@@ -1,0 +1,72 @@
+/* ============================================================
+   Color — Vision.lt
+   ------------------------------------------------------------
+   Built on the Mastercard palette: a warm cream canvas, a warm
+   near-black ink, and the red/yellow/orange spectrum. Where
+   Mastercard locks red+yellow to the logo only, Vision.lt is a
+   different brand and uses RED boldly as its "cause" signal —
+   that boldness is the "provoking" half of the brand voice.
+   ============================================================ */
+:root {
+  /* ---- Base palette (raw values; prefer the semantic aliases below) ---- */
+  --vz-red:           #F2140A; /* brand red — sampled from the Vision Coaching lion logo */
+  --vz-yellow:        #F79E1B; /* brand yellow — optimism / sight / right lens */
+  --vz-orange:        #CF4500; /* signal orange — lens overlap, consent, legal */
+  --vz-orange-light:  #F37338; /* light orange — orbital arcs, active cues */
+  --vz-clay:          #9A3A0A; /* clay brown — deep rust link-style buttons */
+
+  --vz-ink:           #16130F; /* warm near-black — text, primary CTA, footer */
+  --vz-charcoal:      #262627; /* softer black alternate */
+  --vz-slate:         #696969; /* muted secondary text */
+  --vz-granite:       #555555; /* deeper gray inline accents */
+  --vz-dust:          #D1CDC7; /* whisper text / disabled on cream */
+  --vz-whisper:       #E8E2DA; /* ghost-watermark cream-on-cream */
+
+  --vz-canvas:        #F4F0E9; /* page canvas — warm cream, never pure white */
+  --vz-lifted:        #FBF8F3; /* lifted cream — paper-on-paper nested surface */
+  --vz-white:         #FFFFFF; /* nav pill, cards, satellite CTAs */
+  --vz-bone:          #F4F4F4; /* cool-gray alt surface */
+
+  --vz-blue:          #3860BE; /* link blue — inline links, info callouts */
+
+  /* ---- Semantic surfaces ---- */
+  --surface-canvas:   var(--vz-canvas);
+  --surface-lifted:   var(--vz-lifted);
+  --surface-card:     var(--vz-white);
+  --surface-bone:     var(--vz-bone);
+  --surface-ink:      var(--vz-ink);   /* footer, dark sections */
+
+  /* ---- Semantic text ---- */
+  --text-primary:     var(--vz-ink);
+  --text-secondary:   var(--vz-slate);
+  --text-muted:       var(--vz-dust);
+  --text-on-ink:      var(--vz-canvas); /* cream, not pure white, on dark */
+  --text-on-cause:    var(--vz-white);
+  --text-link:        var(--vz-blue);
+
+  /* ---- Brand / lens ---- */
+  --brand-lens-left:  var(--vz-red);
+  --brand-lens-right: var(--vz-yellow);
+  --brand-lens-blend: var(--vz-orange);
+  /* The one sanctioned brand gradient: the "vision spectrum" lens blend.
+     Use sparingly — the mark, a hero stat, a single hover state. */
+  --brand-spectrum:   linear-gradient(100deg, var(--vz-red) 0%, var(--vz-orange) 52%, var(--vz-yellow) 100%);
+
+  /* ---- Accents (functional) ---- */
+  --accent-cause:     var(--vz-red);          /* funding / give actions — bold */
+  --accent-cause-press: #C0140A;              /* pressed cause CTA */
+  --accent-signal:    var(--vz-orange);       /* consent, legal, compliance only */
+  --accent-arc:       var(--vz-orange-light); /* decorative orbital lines */
+
+  /* ---- Borders & lines ---- */
+  --border-ink:       var(--vz-ink);                    /* 1.5px pill outlines */
+  --border-hairline:  rgba(20, 20, 19, 0.14);           /* inputs, dividers on cream */
+  --border-on-ink:    rgba(255, 255, 255, 0.30);        /* dividers on the dark footer */
+
+  /* ---- Focus ---- */
+  --focus-ring:       0 0 0 3px rgba(56, 96, 190, 0.45);
+
+  /* ---- Logo brand marks (identity only; not a UI palette) ---- */
+  --logo-red:         var(--vz-red);
+  --logo-yellow:      var(--vz-yellow);
+}

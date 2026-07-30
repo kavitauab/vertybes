@@ -1,0 +1,18 @@
+/* ============================================================
+   Elevation — Vision Coaching
+   ------------------------------------------------------------
+   Shadows are atmospheric cushioning, not directional light:
+   large spread, low opacity, warm-tinted (built on the ink hue,
+   not pure black) so they sit naturally on the cream canvas.
+   Most surfaces use level 0 (no shadow); borders do functional
+   delineation.
+   ============================================================ */
+:root {
+  --shadow-1: 0 4px 24px rgba(22,19,15,0.05);    /* floating nav pill — barely-there lift */
+  --shadow-2: 0 22px 46px rgba(22,19,15,0.07);   /* cards, elevated content — soft halo */
+  --shadow-3: 0 30px 70px rgba(22,19,15,0.12);   /* portraits / feature media */
+
+  --shadow-nav:          var(--shadow-1);
+  --shadow-nav-scrolled: 0 10px 34px rgba(22,19,15,0.12);
+  --shadow-inset-hair:   inset 0 0 0 1px rgba(22,19,15,0.05);
+}

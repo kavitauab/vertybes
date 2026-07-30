@@ -4,12 +4,20 @@ $activeNav = 'dashboard';
 require_once __DIR__ . '/includes/head.php';
 ?>
 <div class="stat-grid">
-  <div class="stat"><div class="num" id="stWaitlist">–</div><div class="lbl">Laukimo sąrašas</div></div>
-  <div class="stat"><div class="num" id="stResult">–</div><div class="lbl">Kontaktai iš testo</div></div>
-  <div class="stat"><div class="num" id="stSessions">–</div><div class="lbl">Pradėti testai</div></div>
-  <div class="stat"><div class="num" id="stCompleted">–</div><div class="lbl">Baigti testai</div></div>
+  <div class="stat"><div class="num" id="stSessions">–</div><div class="lbl">Pradėti testai</div>
+    <div class="sub-num" id="stSessionsU"></div></div>
+  <div class="stat"><div class="num" id="stCompleted">–</div><div class="lbl">Baigti testai</div>
+    <div class="sub-num" id="stCompletedU"></div></div>
   <div class="stat"><div class="num" id="stConversion">–</div><div class="lbl">Užbaigiamumas</div></div>
+  <div class="stat"><div class="num" id="stResult">–</div><div class="lbl">Kontaktai iš testo</div>
+    <div class="sub-num" id="stEmailRate"></div></div>
+  <div class="stat"><div class="num" id="stWaitlist">–</div><div class="lbl">Laukimo sąrašas</div></div>
 </div>
+<p class="form-help" style="margin:-.6rem 0 1.4rem">
+  Pagrindinis skaičius — <strong>sesijos</strong>. Po juo — <strong>unikalūs žmonės</strong>:
+  tas pats žmogus, kartodamas testą, sukuria naują sesiją, todėl sesijų visada daugiau.
+  GA4 rodo dar mažiau — dalis lankytojų blokuoja analitiką arba atsisako slapukų.
+</p>
 
 <div class="dash-grid">
   <div class="card">
@@ -56,6 +64,11 @@ async function loadStats() {
     setText('stResult', s.leads_result);
     setText('stSessions', s.sessions_total);
     setText('stCompleted', s.sessions_completed);
+    setText('stSessionsU', s.unique_total != null ? s.unique_total + ' unikalūs' : '');
+    setText('stCompletedU', s.unique_completed != null ? s.unique_completed + ' unikalūs' : '');
+    // email rate is measured against completions — that's the funnel step it follows
+    setText('stEmailRate', s.sessions_completed
+        ? Math.round(100 * s.leads_result / s.sessions_completed) + '% baigusiųjų' : '');
     setText('stConversion', s.sessions_total
         ? Math.round(100 * s.sessions_completed / s.sessions_total) + '%' : '—');
 

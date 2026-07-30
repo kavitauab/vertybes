@@ -1,0 +1,14 @@
+/* ============================================================
+   Fonts — Vision.lt
+   ------------------------------------------------------------
+   Brand face is Sofia Sans (Google Fonts). It is the closest
+   open-source match to the geometric grotesque the brand was
+   designed against, and supports the load-bearing 450 weight.
+   Variable axis 1..1000 so weights 450 / 500 / 600 / 700 all
+   resolve from one file.
+
+   NOTE: loaded from Google Fonts CDN. To ship fully offline,
+   self-host the woff2 files and replace this @import with local
+   @font-face rules (see readme.md → Visual Foundations → Type).
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap');

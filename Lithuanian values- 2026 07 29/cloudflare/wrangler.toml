@@ -1,0 +1,22 @@
+name = "vertybes-api"
+main = "worker.js"
+compatibility_date = "2026-07-01"
+
+# Maršrutas: api.vertybes.lt/* ARBA vertybes.lt/api/*
+routes = [
+  { pattern = "vertybes.lt/api/*", zone_name = "vertybes.lt" }
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "vertybes-db"
+database_id = "PAKEISK-po-wrangler-d1-create"
+
+[vars]
+ALLOWED_ORIGIN = "https://vertybes.lt"
+ML_GROUP_TEST = "PAKEISK-testo-grupes-id"
+ML_GROUP_MARKETING = "PAKEISK-marketingo-grupes-id"
+
+# Slapti raktai (NE čia, o per CLI):
+# wrangler secret put MAILERLITE_TOKEN
+# wrangler secret put OPENAI_API_KEY

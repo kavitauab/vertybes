@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/vision-lt-1e8c7020-9721-4d9c-a6d9-dfea40144b2f/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/vision-lt-1e8c7020-9721-4d9c-a6d9-dfea40144b2f/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/vision-lt-1e8c7020-9721-4d9c-a6d9-dfea40144b2f/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/vision-lt-1e8c7020-9721-4d9c-a6d9-dfea40144b2f/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/vision-lt-1e8c7020-9721-4d9c-a6d9-dfea40144b2f/tokens/radius.css">
+  <link rel="stylesheet" href="_ds/vision-lt-1e8c7020-9721-4d9c-a6d9-dfea40144b2f/tokens/shadows.css">
+  <link rel="stylesheet" href="_ds/vision-lt-1e8c7020-9721-4d9c-a6d9-dfea40144b2f/tokens/motion.css">
+  <link rel="stylesheet" href="_ds/vision-lt-1e8c7020-9721-4d9c-a6d9-dfea40144b2f/tokens/base.css">
+  <link rel="stylesheet" href="_ds/vision-lt-1e8c7020-9721-4d9c-a6d9-dfea40144b2f/styles.css">
+  <script src="_ds/vision-lt-1e8c7020-9721-4d9c-a6d9-dfea40144b2f/_ds_bundle.js"></script>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;family=Playfair+Display:wght@700&amp;display=swap">
+  <style>
+    body { margin: 0; background: #DFD8CA; }
+    a { color: #496E50; } a:hover { color: #3d5c43; }
+    @keyframes vtRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    input::placeholder { color: var(--vt-placeholder, #A6AAA2); }
+  </style>
+</helmet>
+<div style="{{ paletteStyle }}">
+<div style="min-height:100vh; box-sizing:border-box; padding:30px 16px 56px; display:flex; flex-direction:column; align-items:center; gap:18px; font-family:'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;">
+  <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+    <button onClick="{{ goIntro }}" style="background:#F1ECE1; border:1px solid #CFC8B8; color:#5C564B; font-family:inherit; font-size:.78rem; font-weight:600; padding:.38rem .85rem; border-radius:999px; cursor:pointer;" style-hover="background:#EAE4D6;">1 · Pradžia</button>
+    <button onClick="{{ goQ }}" style="background:#F1ECE1; border:1px solid #CFC8B8; color:#5C564B; font-family:inherit; font-size:.78rem; font-weight:600; padding:.38rem .85rem; border-radius:999px; cursor:pointer;" style-hover="background:#EAE4D6;">2 · Klausimas</button>
+    <button onClick="{{ goCompare }}" style="background:#F1ECE1; border:1px solid #CFC8B8; color:#5C564B; font-family:inherit; font-size:.78rem; font-weight:600; padding:.38rem .85rem; border-radius:999px; cursor:pointer;" style-hover="background:#EAE4D6;">3 · Palyginimas</button>
+    <button onClick="{{ goResult }}" style="background:#F1ECE1; border:1px solid #CFC8B8; color:#5C564B; font-family:inherit; font-size:.78rem; font-weight:600; padding:.38rem .85rem; border-radius:999px; cursor:pointer;" style-hover="background:#EAE4D6;">4 · Rezultatas</button>
+  </div>
+  <div style="width:394px; max-width:100%; box-sizing:border-box; background:var(--vt-bg, #F8F3EA); border-radius:26px; box-shadow:0 30px 70px -30px rgba(48,38,26,.4), 0 4px 14px rgba(48,38,26,.08); overflow:hidden; display:flex; flex-direction:column; min-height:852px; color:var(--vt-body, #424842); font-size:16px; line-height:1.55;">
+    <div style="padding:.95rem 1rem; border-bottom:1px solid var(--vt-line, #EAE3D3); text-align:center;">
+      <span style="font-family:'Playfair Display',Georgia,serif; font-weight:700; font-size:1.15rem; color:var(--vt-ink, #1A2E1D); letter-spacing:.01em;">Vertybių testas</span>
+    </div>
+
+    <sc-if value="{{ isIntro }}" hint-placeholder-val="{{ true }}">
+      <div data-screen-label="Pradžia" style="box-sizing:border-box; min-height:760px; display:flex; flex-direction:column; padding:1.5rem 1.25rem 2.4rem; animation:vtRise .3s ease both;">
+        <div style="position:relative; width:148px; height:148px; margin:1.5rem auto 2.5rem; background:var(--vt-sage, #E3E7DA); border-radius:50%; display:flex; align-items:center; justify-content:center;">
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none" style="color:var(--vt-accent-dark, #3d5c43);">
+            <path d="M24 12 Q26 27 42 30 Q26 33 24 48 Q22 33 6 30 Q22 27 24 12 Z" fill="currentColor"></path>
+            <path d="M42 8 Q42.8 13.2 48 14 Q42.8 14.8 42 20 Q41.2 14.8 36 14 Q41.2 13.2 42 8 Z" fill="currentColor"></path>
+            <path d="M45 36 Q45.5 39.5 49 40 Q45.5 40.5 45 44 Q44.5 40.5 41 40 Q44.5 39.5 45 36 Z" fill="currentColor"></path>
+          </svg>
+          <span style="position:absolute; top:2px; right:6px; width:26px; height:26px; border-radius:50%; background:var(--vt-tan, #B79F7C); border:5px solid var(--vt-bg, #F8F3EA); box-sizing:content-box;"></span>
+        </div>
+        <h1 style="font-family:'Playfair Display',Georgia,serif; font-weight:700; font-size:1.85rem; line-height:1.18; letter-spacing:-.01em; color:var(--vt-ink, #1A2E1D); text-align:center; text-wrap:balance; margin:0;">Suprask, kodėl vieni sprendimai suteikia energijos, o kiti kelia vidinį konfliktą.</h1>
+        <p style="color:var(--vt-muted, #8A8F88); font-size:1rem; text-align:center; margin:1.1rem 0 1.8rem;">Rašyk pirmus atsakymus, kurie ateina į galvą. Ilgai negalvok.</p>
+        <div style="background:var(--vt-surface, #FFFFFF); border-radius:20px; padding:1.1rem 1.25rem; box-shadow:var(--vt-shadow-card, 0 2px 6px rgba(26,46,29,.04), 0 12px 32px -16px rgba(26,46,29,.12)); margin-bottom:1.8rem;">
+          <div style="display:flex; gap:.9rem; align-items:flex-start; padding:.55rem 0; color:var(--vt-ink, #1A2E1D); font-size:1rem;">
+            <span style="flex-shrink:0; width:26px; height:26px; border-radius:50%; background:var(--vt-accent-soft, #E9EEE8); display:flex; align-items:center; justify-content:center; color:var(--vt-accent, #496E50); margin-top:.1rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+            <span>Pamatysi, kas iš tikrųjų valdo tavo sprendimus</span>
+          </div>
+          <div style="display:flex; gap:.9rem; align-items:flex-start; padding:.55rem 0; color:var(--vt-ink, #1A2E1D); font-size:1rem;">
+            <span style="flex-shrink:0; width:26px; height:26px; border-radius:50%; background:var(--vt-accent-soft, #E9EEE8); display:flex; align-items:center; justify-content:center; color:var(--vt-accent, #496E50); margin-top:.1rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+            <span>Sužinosi savo vidinės įtampos priežastį</span>
+          </div>
+          <div style="display:flex; gap:.9rem; align-items:flex-start; padding:.55rem 0; color:var(--vt-ink, #1A2E1D); font-size:1rem;">
+            <span style="flex-shrink:0; width:26px; height:26px; border-radius:50%; background:var(--vt-accent-soft, #E9EEE8); display:flex; align-items:center; justify-content:center; color:var(--vt-accent, #496E50); margin-top:.1rem;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+            <span>Gausi aiškų tavo sprendimų kompasą vos per 5 minutes</span>
+          </div>
+        </div>
+        <div style="margin-top:auto;">
+          <button onClick="{{ goQ }}" style="display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%; box-sizing:border-box; min-height:60px; padding:1rem 2rem; font-size:1.05rem; font-weight:600; font-family:inherit; color:var(--vt-on-accent, #fff); background:var(--vt-accent, #496E50); border:none; border-radius:999px; cursor:pointer; box-shadow:var(--vt-btn-shadow, 0 10px 24px -12px rgba(73,110,80,.5)); transition:background .15s, transform .12s;" style-hover="background:var(--vt-accent-dark, #3d5c43);" style-active="transform:scale(.99);">Pradėti</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isQ }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Klausimas 1" style="box-sizing:border-box; min-height:760px; display:flex; flex-direction:column; padding:0 1.25rem 2.4rem; animation:vtRise .3s ease both;">
+        <div style="padding:.9rem 0 0;">
+          <div style="display:flex; align-items:center; gap:.9rem;">
+            <button onClick="{{ goIntro }}" aria-label="Atgal" style="background:none; border:none; cursor:pointer; color:var(--vt-ink, #1A2E1D); padding:.3rem .4rem; margin-left:-.4rem; border-radius:8px; display:flex;" style-hover="background:var(--vt-accent-soft, #E9EEE8);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+            <div style="flex:1;">
+              <div style="font-size:.78rem; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--vt-muted, #8A8F88); margin-bottom:.45rem;">Klausimas 1 iš 4</div>
+              <div style="height:4px; background:var(--vt-track, #E5DFCF); border-radius:2px; overflow:hidden;">
+                <div style="height:100%; width:25%; background:var(--vt-accent, #496E50); border-radius:2px;"></div>
+              </div>
+            </div>
+          </div>
+          <hr style="border:none; border-top:1px solid var(--vt-line, #EAE3D3); margin:1rem -1.25rem 0;">
+        </div>
+        <h2 style="font-family:'Playfair Display',Georgia,serif; font-weight:700; font-size:1.6rem; line-height:1.2; letter-spacing:-.01em; color:var(--vt-ink, #1A2E1D); text-wrap:balance; margin:1.5rem 0 0;">Ką labiausiai mėgsti veikti laisvalaikiu?</h2>
+        <p style="color:var(--vt-muted, #8A8F88); margin:.6rem 0 1.4rem;">Rašyk trumpai. Tinka žodžiai ar trumpos frazės. Gali įrašyti iki 6 atsakymų.</p>
+        <div style="display:flex; flex-direction:column; gap:.85rem; margin-bottom:.85rem;">
+          <sc-for list="{{ answers }}" as="a" hint-placeholder-count="2">
+            <div style="background:var(--vt-surface, #FFFFFF); border:1px solid transparent; border-color: {{ a.borderColor }}; border-radius:18px; padding:.9rem 1.15rem .95rem; box-shadow:var(--vt-shadow-card, 0 2px 6px rgba(26,46,29,.04), 0 12px 32px -16px rgba(26,46,29,.12)); transition:border-color .15s;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.2rem; min-height:1.1rem;">
+                <span style="font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--vt-accent, #496E50);">{{ a.label }}</span>
+                <sc-if value="{{ a.removable }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ a.onRemove }}" aria-label="Pašalinti atsakymą" style="background:none; border:none; cursor:pointer; color:var(--vt-muted, #8A8F88); font-size:1.1rem; line-height:1; padding:.1rem .3rem; margin:-.2rem -.3rem -.2rem 0; border-radius:6px;" style-hover="color:#B42318; background:var(--vt-error-bg, #FDF1F0);">×</button>
+                </sc-if>
+              </div>
+              <input value="{{ a.value }}" onChange="{{ a.onChange }}" onFocus="{{ a.onFocus }}" onBlur="{{ a.onBlur }}" placeholder="{{ a.placeholder }}" style="width:100%; box-sizing:border-box; border:none; outline:none; background:transparent; font-family:inherit; font-size:1.05rem; color:var(--vt-ink, #1A2E1D); padding:.15rem 0 0;">
+            </div>
+          </sc-for>
+          <sc-if value="{{ canAdd }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ addAnswer }}" style="display:flex; align-items:center; justify-content:center; gap:.55rem; width:100%; box-sizing:border-box; min-height:56px; font-family:inherit; font-size:1rem; font-weight:500; color:var(--vt-body, #424842); background:var(--vt-sand, rgba(73,110,80,.07)); border:1px solid var(--vt-line, #EAE3D3); border-radius:999px; cursor:pointer; transition:background .15s;" style-hover="background:var(--vt-sand-hover, rgba(73,110,80,.12));">
+              <span style="color:var(--vt-accent, #496E50); font-size:1.25rem; font-weight:400; line-height:1;">+</span>
+              <span>Pridėti dar vieną atsakymą</span>
+            </button>
+          </sc-if>
+        </div>
+        <div style="margin-top:.6rem;">
+          <button onClick="{{ goCompare }}" style="display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%; box-sizing:border-box; min-height:60px; padding:1rem 2rem; font-size:1.05rem; font-weight:600; font-family:inherit; color:var(--vt-on-accent, #fff); background:var(--vt-accent, #496E50); border:none; border-radius:999px; cursor:pointer; box-shadow:var(--vt-btn-shadow, 0 10px 24px -12px rgba(73,110,80,.5)); transition:background .15s, transform .12s;" style-hover="background:var(--vt-accent-dark, #3d5c43);" style-active="transform:scale(.99);">Tęsti</button>
+        </div>
+        <div style="text-align:center; font-size:.75rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--vt-faint, #B9B4A5); margin-top:1rem;">Atsakymai išsaugomi automatiškai.</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isCompare }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Vertybių palyginimas" style="box-sizing:border-box; min-height:760px; display:flex; flex-direction:column; padding:0 1.25rem 2.4rem; animation:vtRise .3s ease both;">
+        <h2 style="font-family:'Playfair Display',Georgia,serif; font-weight:700; font-size:1.6rem; line-height:1.2; letter-spacing:-.01em; color:var(--vt-ink, #1A2E1D); text-wrap:balance; margin:1.6rem 0 0;">Toliau lyginsime šias 6 vertybes</h2>
+        <p style="color:var(--vt-muted, #8A8F88); margin:.6rem 0 0;">Jas atrinkome pagal pasikartojimus tavo atsakymuose, AI siūlymus ir tavo patvirtinimus.</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:.85rem; margin:1.4rem 0 1.6rem;">
+          <div style="background:var(--vt-surface, #FFFFFF); border-radius:18px; box-shadow:var(--vt-shadow-card, 0 2px 6px rgba(26,46,29,.04), 0 12px 32px -16px rgba(26,46,29,.12)); padding:1.1rem 1.15rem;">
+            <div style="font-family:'Playfair Display',Georgia,serif; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--vt-ink, #1A2E1D); font-size:1.05rem; margin-bottom:.5rem;">Laisvė</div>
+            <div style="font-style:italic; color:var(--vt-muted, #8A8F88); font-size:.88rem; line-height:1.45;">„Kelionės“</div>
+            <div style="font-style:italic; color:var(--vt-muted, #8A8F88); font-size:.88rem; line-height:1.45;">„nemėgstu kontrolės“</div>
+          </div>
+          <div style="background:var(--vt-surface, #FFFFFF); border-radius:18px; box-shadow:var(--vt-shadow-card, 0 2px 6px rgba(26,46,29,.04), 0 12px 32px -16px rgba(26,46,29,.12)); padding:1.1rem 1.15rem;">
+            <div style="font-family:'Playfair Display',Georgia,serif; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--vt-ink, #1A2E1D); font-size:1.05rem; margin-bottom:.5rem;">Artumas</div>
+            <div style="font-style:italic; color:var(--vt-muted, #8A8F88); font-size:.88rem; line-height:1.45;">„Inside juokai“</div>
+            <div style="font-style:italic; color:var(--vt-muted, #8A8F88); font-size:.88rem; line-height:1.45;">„gilūs pokalbiai“</div>
+          </div>
+          <div style="background:var(--vt-surface, #FFFFFF); border-radius:18px; box-shadow:var(--vt-shadow-card, 0 2px 6px rgba(26,46,29,.04), 0 12px 32px -16px rgba(26,46,29,.12)); padding:1.1rem 1.15rem;">
+            <div style="font-family:'Playfair Display',Georgia,serif; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--vt-ink, #1A2E1D); font-size:1.05rem; margin-bottom:.5rem;">Augimas</div>
+            <div style="font-style:italic; color:var(--vt-muted, #8A8F88); font-size:.88rem; line-height:1.45;">„Skaitymas“</div>
+            <div style="font-style:italic; color:var(--vt-muted, #8A8F88); font-size:.88rem; line-height:1.45;">„mokymasis“</div>
+          </div>
+          <div style="background:var(--vt-surface, #FFFFFF); border-radius:18px; box-shadow:var(--vt-shadow-card, 0 2px 6px rgba(26,46,29,.04), 0 12px 32px -16px rgba(26,46,29,.12)); padding:1.1rem 1.15rem;">
+            <div style="font-family:'Playfair Display',Georgia,serif; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--vt-ink, #1A2E1D); font-size:1.05rem; margin-bottom:.5rem;">Tiesa</div>
+            <div style="font-style:italic; color:var(--vt-muted, #8A8F88); font-size:.88rem; line-height:1.45;">„Pykdo melas“</div>
+          </div>
+          <div style="background:var(--vt-surface, #FFFFFF); border-radius:18px; box-shadow:var(--vt-shadow-card, 0 2px 6px rgba(26,46,29,.04), 0 12px 32px -16px rgba(26,46,29,.12)); padding:1.1rem 1.15rem;">
+            <div style="font-family:'Playfair Display',Georgia,serif; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--vt-ink, #1A2E1D); font-size:1.05rem; margin-bottom:.5rem;">Kompetencija</div>
+            <div style="font-style:italic; color:var(--vt-muted, #8A8F88); font-size:.88rem; line-height:1.45;">„Vertinu profesionalumą“</div>
+          </div>
+          <div style="background:var(--vt-surface, #FFFFFF); border-radius:18px; box-shadow:var(--vt-shadow-card, 0 2px 6px rgba(26,46,29,.04), 0 12px 32px -16px rgba(26,46,29,.12)); padding:1.1rem 1.15rem;">
+            <div style="font-family:'Playfair Display',Georgia,serif; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--vt-ink, #1A2E1D); font-size:1.05rem; margin-bottom:.5rem;">Ramybė</div>
+            <div style="font-style:italic; color:var(--vt-muted, #8A8F88); font-size:.88rem; line-height:1.45;">„Man reikia erdvės ir tylos“</div>
+          </div>
+        </div>
+        <div style="flex:1;"></div>
+        <div>
+          <button onClick="{{ goResult }}" style="display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%; box-sizing:border-box; min-height:60px; padding:1rem 2rem; font-size:1.05rem; font-weight:600; font-family:inherit; color:var(--vt-on-accent, #fff); background:var(--vt-accent, #496E50); border:none; border-radius:999px; cursor:pointer; box-shadow:var(--vt-btn-shadow, 0 10px 24px -12px rgba(73,110,80,.5)); transition:background .15s, transform .12s;" style-hover="background:var(--vt-accent-dark, #3d5c43);" style-active="transform:scale(.99);">Pradėti lyginimą</button>
+          <div style="text-align:center; color:var(--vt-muted, #8A8F88); font-size:.9rem; margin-top:.9rem;">Užtruksite apie 3 minutes</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isResult }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Rezultatas" style="box-sizing:border-box; min-height:760px; display:flex; flex-direction:column; padding:0 1.25rem 2.6rem; animation:vtRise .3s ease both;">
+        <h2 style="font-family:'Playfair Display',Georgia,serif; font-weight:700; font-size:1.7rem; line-height:1.2; letter-spacing:-.01em; color:var(--vt-ink, #1A2E1D); text-wrap:balance; margin:1.6rem 0 0;">Tavo stipriausios vertybės</h2>
+        <div style="width:44px; height:3px; background:var(--vt-accent, #496E50); margin:1.1rem 0 1.2rem;"></div>
+        <p style="color:var(--vt-muted, #8A8F88); margin:0 0 1.5rem;">Šios dvi vertybės šiuo metu stipriausiai veda Tavo sprendimus.</p>
+        <div style="background:var(--vt-surface, #FFFFFF); border-radius:16px; border-top:5px solid var(--vt-accent, #496E50); box-shadow:var(--vt-shadow-card, 0 2px 6px rgba(26,46,29,.04), 0 12px 32px -16px rgba(26,46,29,.12)); padding:1.15rem 1.4rem 1.25rem; margin-bottom:.9rem;">
+          <div style="font-size:.7rem; font-weight:600; letter-spacing:.22em; text-transform:uppercase; color:var(--vt-muted, #8A8F88); margin-bottom:.35rem;">Pirma vertybė</div>
+          <div style="font-family:'Playfair Display',Georgia,serif; font-weight:700; font-size:1.65rem; letter-spacing:.02em; color:var(--vt-ink, #1A2E1D);">1. LAISVĖ</div>
+        </div>
+        <div style="background:var(--vt-surface, #FFFFFF); border-radius:16px; border-top:5px solid var(--vt-accent, #496E50); box-shadow:var(--vt-shadow-card, 0 2px 6px rgba(26,46,29,.04), 0 12px 32px -16px rgba(26,46,29,.12)); padding:1.15rem 1.4rem 1.25rem;">
+          <div style="font-size:.7rem; font-weight:600; letter-spacing:.22em; text-transform:uppercase; color:var(--vt-muted, #8A8F88); margin-bottom:.35rem;">Antra vertybė</div>
+          <div style="font-family:'Playfair Display',Georgia,serif; font-weight:700; font-size:1.65rem; letter-spacing:.02em; color:var(--vt-ink, #1A2E1D);">2. ARTUMAS</div>
+        </div>
+        <div style="background:var(--vt-surface, #FFFFFF); border-radius:18px; box-shadow:var(--vt-shadow-card, 0 2px 6px rgba(26,46,29,.04), 0 12px 32px -16px rgba(26,46,29,.12)); padding:1.3rem 1.4rem; margin:1.4rem 0 .9rem;">
+          <div style="display:flex; gap:.7rem; align-items:center; margin-bottom:.6rem;">
+            <span style="width:34px; height:34px; border-radius:50%; background:var(--vt-accent-soft, #E9EEE8); display:flex; align-items:center; justify-content:center; color:var(--vt-ink, #1A2E1D); flex-shrink:0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"></path><path d="M4 7h16"></path><path d="m16 21 4-4-4-4"></path><path d="M20 17H4"></path></svg></span>
+            <span style="font-family:'Playfair Display',Georgia,serif; font-weight:700; color:var(--vt-ink, #1A2E1D); font-size:1.15rem;">Galima vidinė įtampa</span>
+          </div>
+          <p style="color:var(--vt-muted, #8A8F88); margin:0;">LAISVĖ ir ARTUMAS gali tempti į skirtingas puses: vienoje vietoje nori erdvės, kitoje — tikro ryšio. Dėl to kai kurie sprendimai gali jaustis sunkesni negu atrodo iš šalies.</p>
+        </div>
+        <div style="background:var(--vt-accent, #496E50); border-radius:18px; padding:1.3rem 1.4rem; margin-bottom:1.2rem;">
+          <div style="font-family:'Playfair Display',Georgia,serif; font-weight:700; color:var(--vt-on-accent, #fff); font-size:1.15rem; margin-bottom:.5rem;">Ką tai reiškia</div>
+          <p style="color:var(--vt-meaning-text, rgba(255,255,255,.92)); margin:0;">Tau svarbu rinktis savo kryptį, bet kartu nori santykių, kuriuose yra tikrumo ir šilumos. Tau netinka nei kontrolė, nei paviršutiniškas ryšys.</p>
+        </div>
+        <button style="display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%; box-sizing:border-box; min-height:60px; padding:1rem 2rem; font-size:.92rem; font-weight:600; font-family:inherit; letter-spacing:.1em; text-transform:uppercase; color:var(--vt-on-accent, #fff); background:var(--vt-accent, #496E50); border:none; border-radius:999px; cursor:pointer; box-shadow:var(--vt-btn-shadow, 0 10px 24px -12px rgba(73,110,80,.5)); transition:background .15s, transform .12s;" style-hover="background:var(--vt-accent-dark, #3d5c43);" style-active="transform:scale(.99);">Rezervuoti pokalbį</button>
+        <div style="background:var(--vt-surface, #FFFFFF); border-radius:20px; padding:1.5rem 1.25rem; box-shadow:var(--vt-shadow-card, 0 2px 6px rgba(26,46,29,.04), 0 12px 32px -16px rgba(26,46,29,.12)); margin-top:1.2rem;">
+          <div style="font-family:'Playfair Display',Georgia,serif; font-weight:700; color:var(--vt-ink, #1A2E1D); font-size:1.3rem; margin-bottom:.3rem;">Gauti rezultatą el. paštu</div>
+          <div style="color:var(--vt-muted, #8A8F88); font-size:.95rem; margin-bottom:1.1rem;">Jei nori, atsiųsiu šį rezultatą ir trumpą santrauką.</div>
+          <div style="font-size:.7rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; margin-bottom:.4rem; color: {{ emailLabelColor }};">El. paštas</div>
+          <input type="email" value="{{ email }}" onChange="{{ onEmail }}" onFocus="{{ emailFocus }}" onBlur="{{ emailBlur }}" placeholder="pavyzdys@pastas.lt" style="width:100%; box-sizing:border-box; min-height:54px; padding:.85rem 1.05rem; font-size:1rem; font-family:inherit; color:var(--vt-ink, #1A2E1D); background:var(--vt-surface-soft, #FBF9F5); border:1px solid #EAE3D3; border-color: {{ emailBorder }}; border-radius:14px; outline:none; transition:border-color .15s;">
+          <label style="display:flex; gap:.7rem; align-items:flex-start; font-size:.92rem; cursor:pointer; text-align:left; margin:1rem 0 .2rem;">
+            <input type="checkbox" checked="{{ consent }}" onChange="{{ onConsent }}" style="width:20px; height:20px; margin-top:.1rem; accent-color:var(--vt-accent, #496E50); flex-shrink:0; cursor:pointer;">
+            <span style="color: {{ consentColor }};">Sutinku, kad mano el. pašto adresas būtų naudojamas šio rezultato ir susijusios informacijos siuntimui. Bet kada galėsiu atsisakyti.</span>
+          </label>
+          <sc-if value="{{ notSent }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ submitEmail }}" style="display:flex; align-items:center; justify-content:center; gap:.5rem; width:100%; box-sizing:border-box; min-height:60px; padding:1rem 2rem; font-size:.92rem; font-weight:600; font-family:inherit; letter-spacing:.1em; text-transform:uppercase; color:var(--vt-on-accent, #fff); background:var(--vt-accent, #496E50); border:none; border-radius:999px; cursor:pointer; box-shadow:var(--vt-btn-shadow, 0 10px 24px -12px rgba(73,110,80,.5)); transition:background .15s, transform .12s; margin-top:1.1rem;" style-hover="background:var(--vt-accent-dark, #3d5c43);" style-active="transform:scale(.99);">Siųsti rezultatą</button>
+          </sc-if>
+          <sc-if value="{{ sent }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:center; justify-content:center; gap:.6rem; background:var(--vt-accent-soft, #E9EEE8); border-radius:16px; padding:1rem 1.2rem; margin-top:1.1rem; font-weight:600; color:var(--vt-ink, #1A2E1D);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--vt-accent, #496E50);"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span>Rezultatas išsiųstas.</span>
+            </div>
+          </sc-if>
+          <a href="#" onClick="{{ noop }}" style="display:block; text-align:center; margin-top:.9rem; font-size:.82rem; color:var(--vt-muted, #8A8F88); text-underline-offset:3px;">Privatumo politika</a>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;preset&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Žalia (produkcija)&quot;, &quot;Kremas + vermilionas&quot;, &quot;Individualu&quot;], &quot;default&quot;: &quot;Žalia (produkcija)&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Paletė&quot; },
+  &quot;bg&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#F8F3EA&quot;, &quot;options&quot;: [&quot;#F8F3EA&quot;, &quot;#F7EFDC&quot;, &quot;#FFFFFF&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Individuali paletė (kai Paletė = Individualu)&quot; },
+  &quot;surface&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#FFFFFF&quot;, &quot;options&quot;: [&quot;#FFFFFF&quot;, &quot;#FBF8F3&quot;, &quot;#F4F0E9&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Individuali paletė (kai Paletė = Individualu)&quot; },
+  &quot;ink&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#1A2E1D&quot;, &quot;options&quot;: [&quot;#1A2E1D&quot;, &quot;#40201A&quot;, &quot;#16130F&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Individuali paletė (kai Paletė = Individualu)&quot; },
+  &quot;bodyText&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#424842&quot;, &quot;options&quot;: [&quot;#424842&quot;, &quot;#59362C&quot;, &quot;#40201A&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Individuali paletė (kai Paletė = Individualu)&quot; },
+  &quot;accent&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#496E50&quot;, &quot;options&quot;: [&quot;#496E50&quot;, &quot;#D9432C&quot;, &quot;#B79F7C&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Individuali paletė (kai Paletė = Individualu)&quot; },
+  &quot;accentDark&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#3D5C43&quot;, &quot;options&quot;: [&quot;#3D5C43&quot;, &quot;#B93A26&quot;, &quot;#9A3A0A&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Individuali paletė (kai Paletė = Individualu)&quot; },
+  &quot;accentSoft&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#E9EEE8&quot;, &quot;options&quot;: [&quot;#E9EEE8&quot;, &quot;#F7E2D5&quot;, &quot;#F2C4AE&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Individuali paletė (kai Paletė = Individualu)&quot; },
+  &quot;sage&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#E3E7DA&quot;, &quot;options&quot;: [&quot;#E3E7DA&quot;, &quot;#F2C4AE&quot;, &quot;#E8E2DA&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Individuali paletė (kai Paletė = Individualu)&quot; },
+  &quot;tan&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#B79F7C&quot;, &quot;options&quot;: [&quot;#B79F7C&quot;, &quot;#E8845F&quot;, &quot;#F79E1B&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Individuali paletė (kai Paletė = Individualu)&quot; },
+  &quot;line&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#EAE3D3&quot;, &quot;options&quot;: [&quot;#EAE3D3&quot;, &quot;#EBDDC0&quot;, &quot;#E8E2DA&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Individuali paletė (kai Paletė = Individualu)&quot; }
+}">
+class Component extends DCLogic {
+  state = { screen: 'intro', answers: [{ v: '' }, { v: '' }], focus: null, email: '', consent: false, emailErr: false, consentErr: false, sent: false };
+  palette() {
+    const p = this.props || {};
+    const G = { bg: '#F8F3EA', surface: '#FFFFFF', soft: '#FBF9F5', ink: '#1A2E1D', body: '#424842', muted: '#8A8F88', accent: '#496E50', accentDark: '#3D5C43', accentSoft: '#E9EEE8', sage: '#E3E7DA', tan: '#B79F7C', line: '#EAE3D3', track: '#E5DFCF', faint: '#B9B4A5', ph: '#A6AAA2', on: '#FFFFFF' };
+    const V = { bg: '#F7EFDC', surface: '#FFFFFF', soft: '#FCF8EE', ink: '#40201A', body: '#59362C', muted: '#A0553D', accent: '#D9432C', accentDark: '#B93A26', accentSoft: '#F7E2D5', sage: '#F2C4AE', tan: '#E8845F', line: '#EBDDC0', track: '#EDE0C4', faint: '#C4A98E', ph: '#B99F8C', on: '#F7EFDC' };
+    const preset = p.preset ?? 'Žalia (produkcija)';
+    if (preset === 'Kremas + vermilionas') return V;
+    if (preset === 'Individualu') {
+      const bg = p.bg ?? G.bg, surface = p.surface ?? G.surface, ink = p.ink ?? G.ink, body = p.bodyText ?? G.body, accent = p.accent ?? G.accent, line = p.line ?? G.line;
+      return {
+        bg, surface, ink, body, accent, line,
+        accentDark: p.accentDark ?? G.accentDark,
+        accentSoft: p.accentSoft ?? G.accentSoft,
+        sage: p.sage ?? G.sage, tan: p.tan ?? G.tan,
+        soft: `color-mix(in srgb, ${surface} 62%, ${bg})`,
+        muted: `color-mix(in srgb, ${body} 55%, ${bg})`,
+        track: `color-mix(in srgb, ${line} 72%, ${bg})`,
+        faint: `color-mix(in srgb, ${body} 38%, ${bg})`,
+        ph: `color-mix(in srgb, ${body} 42%, ${surface})`,
+        on: '#FFFFFF'
+      };
+    }
+    return G;
+  }
+  renderVals() {
+    const t = this.palette();
+    const s = this.state;
+    const paletteStyle = {
+      '--vt-bg': t.bg, '--vt-surface': t.surface, '--vt-surface-soft': t.soft, '--vt-ink': t.ink, '--vt-body': t.body, '--vt-muted': t.muted,
+      '--vt-accent': t.accent, '--vt-accent-dark': t.accentDark, '--vt-accent-soft': t.accentSoft, '--vt-sage': t.sage, '--vt-tan': t.tan,
+      '--vt-line': t.line, '--vt-track': t.track, '--vt-faint': t.faint, '--vt-placeholder': t.ph, '--vt-on-accent': t.on,
+      '--vt-error-bg': '#FDF1F0',
+      '--vt-shadow-card': `0 2px 6px color-mix(in srgb, ${t.ink} 4%, transparent), 0 12px 32px -16px color-mix(in srgb, ${t.ink} 12%, transparent)`,
+      '--vt-btn-shadow': `0 10px 24px -12px color-mix(in srgb, ${t.accent} 50%, transparent)`,
+      '--vt-sand': `color-mix(in srgb, ${t.accent} 7%, transparent)`,
+      '--vt-sand-hover': `color-mix(in srgb, ${t.accent} 12%, transparent)`,
+      '--vt-meaning-text': `color-mix(in srgb, ${t.on} 92%, transparent)`
+    };
+    const go = (screen) => () => this.setState({ screen });
+    const answers = s.answers.map((a, i) => ({
+      label: 'Atsakymas ' + (i + 1),
+      value: a.v,
+      placeholder: i === 0 ? 'Pvz.: Skaityti knygas po žvaigždėmis' : i === 1 ? 'Pvz.: Meditacija tylioje erdvėje' : '',
+      borderColor: s.focus === 'a' + i ? t.accent : 'transparent',
+      onChange: (e) => { const arr = this.state.answers.slice(); arr[i] = { v: e.target.value }; this.setState({ answers: arr }); },
+      onFocus: () => this.setState({ focus: 'a' + i }),
+      onBlur: () => this.setState({ focus: null }),
+      removable: i >= 2,
+      onRemove: () => { const arr = this.state.answers.slice(); arr.splice(i, 1); this.setState({ answers: arr }); }
+    }));
+    return {
+      paletteStyle,
+      isIntro: s.screen === 'intro', isQ: s.screen === 'q', isCompare: s.screen === 'compare', isResult: s.screen === 'result',
+      goIntro: go('intro'), goQ: go('q'), goCompare: go('compare'), goResult: go('result'),
+      answers,
+      canAdd: s.answers.length < 6,
+      addAnswer: () => { if (this.state.answers.length < 6) this.setState({ answers: [...this.state.answers, { v: '' }] }); },
+      email: s.email,
+      onEmail: (e) => this.setState({ email: e.target.value, emailErr: false }),
+      emailFocus: () => this.setState({ focus: 'email' }),
+      emailBlur: () => this.setState({ focus: null }),
+      emailBorder: s.emailErr ? '#B42318' : (s.focus === 'email' ? t.accent : t.line),
+      emailLabelColor: s.emailErr ? '#B42318' : t.accent,
+      consent: s.consent,
+      onConsent: (e) => this.setState({ consent: e.target.checked, consentErr: false }),
+      consentColor: s.consentErr ? '#B42318' : t.body,
+      sent: s.sent, notSent: !s.sent,
+      submitEmail: () => {
+        const ok = /^\S+@\S+\.\S+$/.test(this.state.email.trim());
+        const c = this.state.consent;
+        this.setState({ emailErr: !ok, consentErr: !c, sent: ok && c });
+      },
+      noop: (e) => e.preventDefault()
+    };
+  }
+}
+</script>
+</body>
+</html>

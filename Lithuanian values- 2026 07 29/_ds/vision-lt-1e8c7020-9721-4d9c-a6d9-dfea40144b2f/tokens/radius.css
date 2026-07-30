@@ -1,0 +1,18 @@
+/* ============================================================
+   Radius — Vision Coaching
+   ------------------------------------------------------------
+   The Mastercard radius philosophy: commit to small (<=6px),
+   medium-large (20-40px), or full-pill (999px+). The 8-16px
+   middle ground is deliberately absent — it reads generic.
+   ============================================================ */
+:root {
+  --r-xs:     4px;     /* tiny decorative chips */
+  --r-button: 20px;    /* body CTAs (doc default) */
+  --r-card:   24px;    /* cards, testimonial cards, modal inner chips */
+  --r-frame:  40px;    /* hero / stadium media frames */
+  --r-pill:   999px;   /* nav pill, pill buttons, tags */
+  --r-circle: 50%;     /* portraits, satellite CTAs, icon buttons */
+
+  /* ---- Semantic ---- */
+  --r-cta: var(--r-pill); /* Vision Coaching CTAs run as full pills */
+}

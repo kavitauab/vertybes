@@ -452,11 +452,21 @@ try {
                 }
             }
 
+            // Sessions vs people: a retake creates a new session, so the raw
+            // session count runs ahead of the number of humans. Report both.
+            $uniqTotal = (int)$db->fetchOne(
+                "SELECT COUNT(DISTINCT ip_hash) c FROM test_sessions WHERE ip_hash IS NOT NULL")['c'];
+            $uniqCompleted = (int)$db->fetchOne(
+                "SELECT COUNT(DISTINCT ip_hash) c FROM test_sessions
+                 WHERE ip_hash IS NOT NULL AND status IN ('result_ready','email_captured')")['c'];
             jsonSuccess(['stats' => [
                 'leads_waitlist' => (int)$db->fetchOne("SELECT COUNT(*) c FROM leads WHERE source='waitlist'")['c'],
                 'leads_result'   => (int)$db->fetchOne("SELECT COUNT(*) c FROM leads WHERE source='result'")['c'],
+                'leads_unique'   => (int)$db->fetchOne("SELECT COUNT(DISTINCT email) c FROM leads WHERE source='result'")['c'],
                 'sessions_total' => (int)$db->fetchOne("SELECT COUNT(*) c FROM test_sessions")['c'],
                 'sessions_completed' => ($byStatus['result_ready'] ?? 0) + ($byStatus['email_captured'] ?? 0),
+                'unique_total' => $uniqTotal,
+                'unique_completed' => $uniqCompleted,
                 'funnel' => $funnel,
                 'daily' => array_values($daily),
                 'top_values' => $topValues,
@@ -868,6 +878,14 @@ try {
             }
             if (empty($in['consent'])) jsonError(t('error.consent'), 422);
             $marketing = !empty($in['marketing_opt_in']);
+            // consent_version reflects the ACTUAL checkbox state at submit time:
+            // required only = v1, required + marketing = v2. Never a constant.
+            $consentVersion = $marketing ? 'v2' : 'v1';
+            if (!empty($in['consent_version']) && in_array($in['consent_version'], ['v1', 'v2'], true)) {
+                // trust the client only when it agrees with the opt-in flag
+                if (($in['consent_version'] === 'v2') === $marketing) $consentVersion = $in['consent_version'];
+            }
+            $entryPoint = in_array($in['entry_point'] ?? '', ['gate', 'reminder'], true) ? $in['entry_point'] : 'gate';
 
             $r = $db->fetchOne("SELECT * FROM session_results WHERE session_id = ?", [$session['id']]);
             if (!$r) jsonError('Rezultato dar nėra', 400);
@@ -877,7 +895,6 @@ try {
             $top = tfValueDetails($db, json_decode($r['top_keys_json'], true) ?: []);
             $value1 = $top[0]['label_lt'] ?? '';
             $value2 = $top[1]['label_lt'] ?? '';
-            $consentVersion = (string)getSetting('consent_version', 'v1');
 
             // referral_code is client/URL input — verify against coaches, never trust it
             $leadSource = substr((string)($session['lead_source'] ?? ''), 0, 60);
@@ -915,7 +932,10 @@ try {
                     'session' => $session['uuid']], 'mail');
             }
             $db->update('test_sessions', ['status' => 'email_captured'], 'id = ?', [$session['id']]);
-            jsonSuccess(['sent' => true]);
+            getLogger()->info('Lead captured', ['session' => $session['uuid'],
+                'entry_point' => $entryPoint, 'consent_version' => $consentVersion,
+                'marketing' => $marketing], 'leads');
+            jsonSuccess(['sent' => true, 'consent_version' => $consentVersion]);
         }
 
         case 'joinWaitlist': {

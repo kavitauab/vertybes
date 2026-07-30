@@ -1,0 +1,31 @@
+STARTING PROMPT FOR CLAUDE DESIGN
+(paste this as your first message after attaching all files in this package)
+
+---
+
+Recreate the 4 mobile screens shown in the attached PDFs as an interactive
+prototype: intro screen ("pirmas langas"), open question screen ("1 klausimas"),
+values comparison screen ("vertybiu palyginimas") and result screen ("Rezultatas").
+
+This is a Lithuanian values-test web app. Keep all Lithuanian texts exactly as
+they appear in the PDFs.
+
+The attached public.css and test.css are the production stylesheet — treat the
+:root variables in public.css as the design system source of truth:
+
+  --bg: #F8F3EA (cream background)
+  --ink: #1A2E1D (headings)
+  --body: #424842 (body text)
+  --green: #496E50 / --green-dark: #3d5c43 (primary buttons, accents)
+  --sage: #E3E7DA, --tan: #B79F7C (secondary accents)
+  --error: #B42318
+  Fonts: Inter (body), Playfair Display (headings)
+  Cards: 20px radius, soft shadow; pills: 999px radius
+
+Mobile-first, 394px frame width, matching the PDFs.
+
+GOAL: I want to explore alternative color directions while keeping layout and
+typography identical. After you build the screens, I will use the adjustment
+knobs / inline comments to test palette variants (including bringing the
+palette closer to a cream + vermilion red brand). Please expose the palette
+as swappable design tokens so a single change updates all screens.

@@ -1,0 +1,42 @@
+/* ============================================================
+   Typography — Vision Coaching
+   ------------------------------------------------------------
+   ONE-FONT SYSTEM. MarkForMC is proprietary and unavailable, so
+   the brand runs entirely on Sofia Sans (the open-source face
+   named in Mastercard's own fallback stack). Contrast comes from
+   scale + weight + tracking, never a second typeface. The 450
+   body weight is load-bearing — don't flatten it to 400.
+   ============================================================ */
+:root {
+  --font-sans:    'Sofia Sans', system-ui, -apple-system, Arial, sans-serif; /* @kind font */
+  --font-display: var(--font-sans); /* @kind font */
+  --font-body:    var(--font-sans); /* @kind font */
+
+  /* ---- Weights (450 body is load-bearing) ---- */
+  --fw-body:      450; /* @kind font */
+  --fw-medium:    500; /* @kind font */
+  --fw-display:   560; /* @kind font */
+  --fw-semibold:  600; /* @kind font */
+  --fw-bold:      700; /* @kind font */
+
+  /* ---- Fluid type scale ---- */
+  --fs-hero:    clamp(2.6rem, 7vw, 5.6rem); /* @kind font */
+  --fs-h1:      clamp(2.2rem, 5vw, 3.6rem); /* @kind font */
+  --fs-h2:      clamp(1.95rem, 4.4vw, 3.4rem); /* @kind font */
+  --fs-h3:      clamp(1.4rem, 2.5vw, 1.95rem); /* @kind font */
+  --fs-lede:    clamp(1.1rem, 1.4vw, 1.32rem); /* @kind font */
+  --fs-body:    1.05rem; /* @kind font */
+  --fs-small:   0.88rem; /* @kind font */
+  --fs-eyebrow: 0.78rem; /* @kind font */
+
+  /* ---- Tracking (tight on display, open on eyebrows) ---- */
+  --tracking-hero:    -0.032em; /* @kind font */
+  --tracking-display: -0.022em; /* @kind font */
+  --tracking-tight:   -0.01em; /* @kind font */
+  --tracking-eyebrow:  0.16em; /* @kind font */
+
+  /* ---- Line height (drops as size grows) ---- */
+  --lh-display: 1.04; /* @kind font */
+  --lh-heading: 1.12; /* @kind font */
+  --lh-body:    1.6; /* @kind font */
+}

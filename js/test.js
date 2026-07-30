@@ -628,10 +628,9 @@
     }
 
     /**
-     * Go-live timing rules: "Štai ir viskas" beat 0.5–0.7 s, interpretation
-     * requested immediately after the final tap resolves, "Skaičiuojame…"
-     * state only if we wait longer than the beat, 8 s fallback shows the
-     * result without interpretation blocks (they arrive by email).
+     * After the final duel: 0.6s "Štai ir viskas" beat, then screen 8.
+     * Screen 8 shows only the primary value, so it never waits for the AI —
+     * the interpretation is generated in the background for 9a and the email.
      */
     function finalizeFlow(saveReq) {
         render('<div class="duel-last" style="margin-top:5rem;font-size:1.2rem">' + esc(T('duel.last')) + '</div>', true);
@@ -639,84 +638,19 @@
         saveReq.then(function (d) {
             if (!d || !d.success) { showDuel(); return; }
             var p = d.progress;
-            if (p.state === 'tiebreak') { beatDone.then(function () { handleProgress(p); }); return; }
             if (p.state !== 'final') { beatDone.then(function () { handleProgress(p); }); return; }
 
             track('quiz_complete');
             S.result = { top: p.top_details, tension: p.tension, meaning: p.meaning };
-            var interpReady = !!p.tension;
-            var shown = false;
-            var fallbackTimer = null;
-
-            function showIt(withNote) {
-                if (shown) return;
-                shown = true;
-                if (fallbackTimer) clearTimeout(fallbackTimer);
-                showResult(withNote);
-            }
-
-            if (!interpReady) {
-                // fire immediately — runs while the beat plays
+            if (!p.tension) {
                 api('getInterpretation', {}).then(function (r) {
                     if (r && r.success) {
                         S.result.tension = r.tension;
                         S.result.meaning = r.meaning;
-                        if (shown) { showResult(false); }   // arrived late → fill the blocks in
-                        else { showIt(false); }
                     }
                 });
             }
-
-            beatDone.then(function () {
-                if (interpReady || S.result.tension) { showIt(false); return; }
-                // waited past the beat → animated calculating state, 8 s cap
-                render(
-                    '<div class="ai-screen" style="padding-top:3rem">' +
-                    '<div class="ai-mountain">' +
-                    '<svg width="176" height="100" viewBox="0 0 88 50" style="display:block;margin:0 auto">' +
-                    '<path d="M3 47 L29 9 L43 25 L55 3 L85 47 Z" fill="none" stroke="var(--vt-accent)" stroke-width="2.5" ' +
-                    'stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="340" ' +
-                    'style="animation:vtDraw 3.4s ease infinite"></path></svg></div>' +
-                    '<h1 class="h1-p h-center">' + esc(S.texts['calc.title'] || 'Skaičiuojame tavo rezultatą...') + '</h1>' +
-                    '</div>',
-                    true
-                );
-                fallbackTimer = setTimeout(function () { showIt(true); }, 8000);
-            });
-        });
-    }
-
-    /* ── 7 · Tie-break (only on a true tie) ──────────────── */
-
-    function showTiebreak(c) {
-        function card(key) {
-            var lbl = (candidate(key) || {}).label_lt || key;
-            return '<button class="tb-card" data-key="' + esc(key) + '">' +
-                '<div class="tb-name">' + esc(lbl) + '</div></button>';
-        }
-        render(
-            '<div class="tb-chip-wrap"><span class="chip-soft">' + esc(T('tiebreak.chip')) + '</span></div>' +
-            '<h1 class="h1-p h-center">' + esc(T('tiebreak.title')) + '</h1>' +
-            '<p class="sub-p sub-center" style="margin:.5rem 0 1.5rem">' + esc(T('tiebreak.sub')) + '</p>' +
-            card(c.left_value_key) + card(c.right_value_key) +
-            '<div class="tb-caption">' + esc(T('tiebreak.caption')) + '</div>'
-        );
-        app.querySelectorAll('.tb-card').forEach(function (btn) {
-            btn.onclick = function () {
-                app.querySelectorAll('.tb-card').forEach(function (x) { x.disabled = true; });
-                track('tiebreak_choice', {
-                    chosen_value: (candidate(btn.dataset.key) || {}).label_lt || btn.dataset.key,
-                    other_value: (candidate(btn.dataset.key === c.left_value_key ? c.right_value_key : c.left_value_key) || {}).label_lt,
-                });
-                api('saveComparison', {
-                    pair_index: c.pair_index,
-                    winner_value_key: btn.dataset.key,
-                }).then(function (d) {
-                    if (!d || !d.success) { showTiebreak(c); return; }
-                    c.winner_value_key = btn.dataset.key;
-                    handleProgress(d.progress);
-                });
-            };
+            beatDone.then(showResult);
         });
     }
 
@@ -725,18 +659,17 @@
         if (p.state === 'final') {
             track('quiz_complete');
             S.result = { top: p.top_details, tension: p.tension, meaning: p.meaning };
+            // Screen 8 doesn't display the interpretation, so it never blocks:
+            // fetch it in the background for 9a / the result email.
             if (!S.result.tension) {
                 api('getInterpretation', {}).then(function (r) {
                     if (r && r.success) {
                         S.result.tension = r.tension;
                         S.result.meaning = r.meaning;
-                        showResult(false);
                     }
                 });
-                showResult(true);
-            } else {
-                showResult(false);
             }
+            showResult();
         } else if (p.state === 'tiebreak') {
             var exists = S.comparisons.some(function (x) { return +x.is_tiebreak === 1; });
             if (!exists) {
@@ -754,93 +687,55 @@
         }
     }
 
-    /* ── 8 · Result ──────────────────────────────────────── */
+    /* ══════════════════════════════════════════════════════
+     * Post-result funnel (PERDAVIMAS-v3-2026-07-29):
+     *   8  gate  → 9a unlocked (in place) | 9b skipped
+     *   9b → 9a (unlock) | 10
+     *   9a → 10        10 = shared VISION page, single endpoint
+     * ════════════════════════════════════════════════════ */
 
-    function showResult(interpPending) {
-        var r = S.result;
-        var v1 = r.top[0] || {}, v2 = r.top[1] || {};
-        track('result_view', { value_1: v1.label_lt, value_2: v2.label_lt });
-        render(
-            '<div class="result-chip-wrap"><span class="chip-soft">' + CHECK(11) + ' ' + esc(T('result.chip')) + '</span></div>' +
-            '<h1 class="h1-p">' + esc(T('result.title')) + '</h1>' +
-            '<div class="hero-card">' +
+    function heroCard(v1) {
+        return '<div class="hero-card">' +
             '<div class="hero-watermark">' +
             '<svg width="96" height="55" viewBox="0 0 88 50"><path d="M3 47 L29 9 L43 25 L55 3 L85 47 Z" fill="var(--vt-on-accent)"></path></svg></div>' +
-            '<div class="hero-kicker">' + esc(T('result.rank1')) + '</div>' +
+            '<div class="hero-kicker">' + esc(T('result.primaryKicker')) + '</div>' +
             '<div class="hero-value">' + esc(String(v1.label_lt || '').toLocaleUpperCase('lt-LT')) + '</div>' +
-            '</div>' +
-            '<div class="second-card"><div class="sc-kicker">' + esc(T('result.rank2')) + '</div>' +
-            '<div class="sc-value">' + esc(String(v2.label_lt || '').toLocaleUpperCase('lt-LT')) + '</div></div>' +
-            (r.meaning ? '<div class="interp-card"><h3>' + esc(T('result.meaningTitle')) + '</h3>' +
-                '<p>' + esc(r.meaning) + '</p></div>' : '') +
-            (r.tension ? '<div class="interp-card"><h3>' + esc(T('result.tensionTitle')) + '</h3>' +
-                '<p>' + esc(r.tension) + '</p></div>' : '') +
-            (interpPending && !r.meaning
-                ? '<div class="interp-card"><p>' +
-                  esc(S.texts['result.interpLater'] || 'Išsamią interpretaciją atsiųsime el. paštu.') + '</p></div>'
-                : '') +
-            '<div class="result-next"><button class="btn-p" id="nextStepBtn">' + esc(T('result.nextCta')) + '</button>' +
-            '<div class="result-caption">' + esc(T('result.nextCaption')) + '</div></div>'
-        );
-        document.getElementById('nextStepBtn').onclick = function () { showNextStep(); };
+            '</div>';
     }
 
-    /* ── 9 · Kitas žingsnis (email lives here) ───────────── */
-
-    function showNextStep() {
-        track('next_step_view');
-        var r = S.result || { top: [] };
-        render(
-            '<h1 class="h1-p next-hero">' + esc(T('next.hero')) + '</h1>' +
-            '<p class="next-hero-sub">' + esc(T('next.heroSub')) + '</p>' +
-            '<div class="next-section-title">' + esc(T('next.gapsTitle')) + '</div>' +
-            [1, 2, 3, 4].map(function (i) {
-                return '<div class="gap-row"><span class="gap-dot"><i></i></span><span>' + esc(T('next.gap' + i)) + '</span></div>';
-            }).join('') +
-            '<div class="next-section-title">' + esc(T('next.methodTitle')) + '</div>' +
-            '<div class="sage-card">' + MOUNTAIN(30, 17, 'style="flex-shrink:0;margin-top:.2rem"') +
-            '<p>' + esc(T('next.methodBody')) + '</p></div>' +
-            '<div class="red-block">' +
-            '<h2>' + esc(T('next.heroBig')) + '</h2>' +
-            '<p>' + esc(T('next.heroBigSub')) + '</p>' +
-            '<a class="btn-p on-red" id="visionBtn" href="' + esc(S.links.vision || '#') + '" target="_blank" rel="noopener">' +
-            esc(T('next.visionCta')) + '</a>' +
+    /**
+     * Shared email form — the gate (screen 8) and the reminder (9b) must obey
+     * identical rules: required transactional consent blocks submit, optional
+     * marketing consent stays separate, consent_version derives from the
+     * actual checkbox state at submit time (required only = v1, both = v2).
+     */
+    function emailFormHtml(p, ctaText) {
+        return '<div class="email-row-n">' +
+            '<input type="email" class="input-plain" id="' + p + 'Email" autocomplete="email" placeholder="' +
+            esc(T('next.emailPlaceholder')) + '">' +
+            '<button class="btn-p" id="' + p + 'Btn" style="width:auto;padding:.9rem 1.4rem">' + esc(ctaText) + '</button>' +
             '</div>' +
-            '<div class="card-p email-card-n">' +
-            '<h3>' + esc(T('next.emailTitle')) + '</h3>' +
-            '<div class="email-row-n">' +
-            '<input type="email" class="input-plain" id="leadEmail" autocomplete="email" placeholder="' + esc(T('next.emailPlaceholder')) + '">' +
-            '<button class="btn-p" id="leadBtn" style="width:auto;padding:.9rem 1.4rem">' + esc(T('next.emailCta')) + '</button>' +
-            '</div>' +
-            '<div class="field-error" id="leadError"></div>' +
-            '<label class="check-line" id="leadConsentLine"><input type="checkbox" id="leadConsent">' +
+            '<div class="field-error" id="' + p + 'Error"></div>' +
+            '<label class="check-line" id="' + p + 'ConsentLine" style="margin-top:.9rem">' +
+            '<input type="checkbox" id="' + p + 'Consent">' +
             '<span>' + esc(T('next.consentRequired')) + '</span></label>' +
-            '<label class="check-line" style="margin-top:.5rem"><input type="checkbox" id="leadMarketing">' +
+            '<label class="check-line" style="margin-top:.5rem">' +
+            '<input type="checkbox" id="' + p + 'Marketing">' +
             '<span>' + esc(T('next.consentMarketing')) + '</span></label>' +
-            '<div class="field-error" id="leadConsentError">' + esc(T('error.consent')) + '</div>' +
+            '<div class="field-error" id="' + p + 'ConsentError">' + esc(T('error.consent')) + '</div>' +
             '<a class="link-quiet" href="/privatumas" data-policy="privacy" style="display:inline-block;margin-top:.8rem">' +
             esc(T('policy.title')) + '</a>' +
-            '</div>' +
-            '<div class="next-links">' +
-            '<div>' + esc(T('next.deeper')) + ' <a href="' + esc(S.links.session || '#') + '" target="_blank" rel="noopener" id="sessionLink">' +
-            esc(T('next.sessionLink')) + '</a></div>' +
-            '<div>' + esc(T('next.moreInsights')) + ' <a href="' + esc(S.links.facebook || '#') + '" target="_blank" rel="noopener" id="fbLink">' +
-            esc(T('next.followFb')) + '</a></div>' +
-            '</div>' +
-            '<div class="next-footer">' + esc(T('next.footer')) +
-            '<div class="mark">' + MOUNTAIN(24, 14) + '</div>' + esc(T('next.tagline')) + '</div>'
-        );
+            '<div class="success-note" id="' + p + 'Ok">' + esc(T('unlock.success')) + '</div>';
+    }
 
-        document.getElementById('visionBtn').addEventListener('click', function () { track('vision_method_click'); });
-        document.getElementById('sessionLink').addEventListener('click', function () { track('session_info_click'); });
-        document.getElementById('fbLink').addEventListener('click', function () { track('follow_click', { source: 'next_step' }); });
-
-        document.getElementById('leadBtn').onclick = function () {
-            var emailEl = document.getElementById('leadEmail');
-            var err = document.getElementById('leadError');
-            var consentEl = document.getElementById('leadConsent');
-            var consentErr = document.getElementById('leadConsentError');
-            var line = document.getElementById('leadConsentLine');
+    function wireEmailForm(p, entryPoint, onSuccess) {
+        var btn = document.getElementById(p + 'Btn');
+        btn.onclick = function () {
+            var emailEl = document.getElementById(p + 'Email');
+            var err = document.getElementById(p + 'Error');
+            var consentEl = document.getElementById(p + 'Consent');
+            var consentErr = document.getElementById(p + 'ConsentError');
+            var line = document.getElementById(p + 'ConsentLine');
             err.classList.remove('show');
             consentErr.classList.remove('show');
             emailEl.classList.remove('invalid');
@@ -852,64 +747,178 @@
                 err.textContent = T('error.email');
                 err.classList.add('show');
                 emailEl.classList.add('invalid');
-                track('submit_error', { reason: 'invalid_email' });
+                track('submit_error', { reason: 'invalid_email', entry_point: entryPoint });
                 bad = true;
             }
             if (!consentEl.checked) {
                 consentErr.classList.add('show');
                 line.classList.add('invalid');
-                if (!bad) track('submit_error', { reason: 'no_consent' });
+                if (!bad) track('submit_error', { reason: 'no_consent', entry_point: entryPoint });
                 bad = true;
             }
             if (bad) return;
 
-            var marketing = document.getElementById('leadMarketing').checked;
-            var btn = this;
+            var marketing = document.getElementById(p + 'Marketing').checked;
+            // v1 = transactional only, v2 = transactional + marketing
+            var consentVersion = marketing ? 'v2' : 'v1';
             btn.disabled = true;
-            api('saveLead', { email: email, consent: true, marketing_opt_in: marketing }).then(function (d) {
+            api('saveLead', {
+                email: email,
+                consent: true,
+                marketing_opt_in: marketing,
+                consent_version: consentVersion,
+                entry_point: entryPoint,
+            }).then(function (d) {
                 if (!d.success) {
                     btn.disabled = false;
                     err.textContent = d.message || T('common.errorGeneric');
                     err.classList.add('show');
-                    track('submit_error', { reason: 'api_error' });
+                    track('submit_error', { reason: 'api_error', entry_point: entryPoint });
                     return;
                 }
-                var v1 = (S.result && S.result.top[0]) || {};
-                var v2 = (S.result && S.result.top[1]) || {};
-                track('email_submit', { value_1: v1.label_lt, value_2: v2.label_lt, marketing_opt_in: marketing });
+                var t = (S.result && S.result.top) || [];
+                track('email_submit', {
+                    value_1: (t[0] || {}).label_lt,
+                    value_2: (t[1] || {}).label_lt,
+                    marketing_opt_in: marketing,
+                    entry_point: entryPoint,
+                });
+                if (entryPoint === 'reminder') track('reminder_submit', { screen: '9b' });
                 if (window.fbq) fbq('track', 'Lead');
                 S.sentEmail = email;
-                showSent();
+                var ok = document.getElementById(p + 'Ok');
+                if (ok) ok.classList.add('show');
+                setTimeout(onSuccess, 450);
             });
         };
     }
 
-    /* ── 10 · Sent ───────────────────────────────────────── */
+    /* ── 8 · Result = email gate ─────────────────────────── */
 
-    function showSent() {
+    function showResult() {
+        var t = (S.result && S.result.top) || [];
+        var v1 = t[0] || {}, v2 = t[1] || {};
+        track('result_view', { value_1: v1.label_lt, value_2: v2.label_lt });
         render(
-            '<div class="sent-screen">' +
-            '<div class="sent-mark">' + MOUNTAIN(94, 54) +
-            '<span class="tick-badge">' + CHECK(14, 'var(--vt-on-accent)') + '</span></div>' +
-            '<h1 class="h1-p h-center sent-line">' + esc(T('sent.title')) + '</h1>' +
-            '<p class="sub-p sub-center sent-line d1" style="margin-top:.6rem">' +
-            (S.sentEmail
-                ? esc(T('sent.to', { email: '' })).replace('{email}', '') + '<span class="sent-email">' + esc(S.sentEmail) + '</span>'
-                : esc(T('sent.toFallback'))) + '</p>' +
-            '<p class="sub-p sub-center sent-line d2" style="margin-top:.4rem">' + esc(T('sent.thanks')) + '</p>' +
-            '<hr class="sent-hr">' +
-            '<div class="sent-follow"><div class="f-title">' + esc(T('sent.follow')) + '</div>' +
-            '<a href="' + esc(S.links.facebook || '#') + '" target="_blank" rel="noopener" id="sentFb">' + esc(T('sent.followLink')) + '</a></div>' +
-            '<div class="sent-spam">' + esc(T('sent.spam')) + '</div>' +
-            '<button class="btn-p ghost" id="againBtn" style="max-width:280px">' + esc(T('sent.again')) + '</button>' +
-            '</div>'
+            '<div class="result-chip-wrap"><span class="chip-soft">' + esc(T('result.chip')) + '</span></div>' +
+            '<h1 class="h1-p">' + esc(T('result.title')) + '</h1>' +
+            heroCard(v1) +
+            '<p class="static-line">' + esc(T('result.staticLine')) + '</p>' +
+            '<div class="card-p gate-card">' +
+            '<div class="gate-title">' + esc(T('unlock.title')) + '</div>' +
+            '<div class="gate-sub">' + esc(T('unlock.sub')) + '</div>' +
+            '<div class="gate-list">' +
+            [1, 2, 3].map(function (i) {
+                return '<div class="gate-item"><span class="gate-tick">' + CHECK(11) + '</span>' +
+                    '<span>' + esc(T('unlock.b' + i)) + '</span></div>';
+            }).join('') +
+            '</div>' +
+            emailFormHtml('gate', T('unlock.cta')) +
+            '</div>' +
+            '<div class="skip-wrap"><button class="link-quiet" id="skipBtn">' + esc(T('unlock.skip')) + '</button></div>'
         );
-        document.getElementById('sentFb').addEventListener('click', function () { track('follow_click', { source: 'sent' }); });
-        document.getElementById('againBtn').onclick = function () {
-            track('restart');
-            api('restartTest', {}).then(function () { location.href = '/'; });
+        wireEmailForm('gate', 'gate', showUnlocked);
+        document.getElementById('skipBtn').onclick = function () {
+            track('gate_skip');
+            showSkipped();
         };
     }
+
+    /* ── 9a · Unlocked (in place, no reload, no own URL) ──── */
+
+    function showUnlocked() {
+        var t = (S.result && S.result.top) || [];
+        var v1 = t[0] || {}, v2 = t[1] || {};
+        var r = S.result || {};
+        track('unlock_view', { screen: '9a', value_1: v1.label_lt, value_2: v2.label_lt });
+        render(
+            '<div class="result-chip-wrap"><span class="chip-soft">' + CHECK(11) + ' ' + esc(T('unlocked.badge')) + '</span></div>' +
+            '<h1 class="h1-p">' + esc(T('result.title')) + '</h1>' +
+            heroCard(v1) +
+            '<div class="second-card reveal" style="animation-delay:.12s">' +
+            '<div class="sc-kicker">' + esc(T('result.rank2')) + '</div>' +
+            '<div class="sc-value">' + esc(String(v2.label_lt || '').toLocaleUpperCase('lt-LT')) + '</div></div>' +
+            (r.meaning ? '<div class="interp-card reveal" style="animation-delay:.24s">' +
+                '<h3>' + esc(T('unlocked.meaningTitle')) + '</h3><p>' + esc(r.meaning) + '</p></div>' : '') +
+            (r.tension ? '<div class="interp-card reveal" style="animation-delay:.36s">' +
+                '<h3>' + esc(T('unlocked.tensionTitle')) + '</h3><p>' + esc(r.tension) + '</p></div>' : '') +
+            (!r.meaning && !r.tension
+                ? '<div class="interp-card reveal"><p>' + esc(T('result.interpLater')) + '</p></div>' : '') +
+            '<div class="result-next"><button class="btn-p" id="toNextBtn">' + esc(T('unlocked.cta')) + '</button></div>'
+        );
+        document.getElementById('toNextBtn').onclick = function () {
+            track('next_step_click', { source: '9a' });
+            showNextStep();
+        };
+        // interpretation may still be generating — fill it in when it lands
+        if (!r.meaning) {
+            api('getInterpretation', {}).then(function (d) {
+                if (d && d.success && d.meaning) {
+                    S.result.meaning = d.meaning;
+                    S.result.tension = d.tension;
+                    showUnlocked();
+                }
+            });
+        }
+    }
+
+    /* ── 9b · Skipped — one quiet second chance ──────────── */
+
+    function showSkipped() {
+        var t = (S.result && S.result.top) || [];
+        var v1 = t[0] || {};
+        track('skip_view', { screen: '9b' });
+        render(
+            '<h1 class="h1-p">' + esc(T('result.title')) + '</h1>' +
+            heroCard(v1) +
+            '<p class="static-line">' + esc(T('result.staticLine')) + '</p>' +
+            '<div class="card-p reminder-card">' +
+            '<div class="gate-sub" style="margin-bottom:1rem">' + esc(T('skip.reminder')) + '</div>' +
+            emailFormHtml('rem', T('skip.cta')) +
+            '</div>' +
+            '<div class="result-next"><button class="btn-p ghost" id="toNextBtn">' + esc(T('skip.next')) + '</button></div>'
+        );
+        wireEmailForm('rem', 'reminder', showUnlocked);
+        document.getElementById('toNextBtn').onclick = function () {
+            track('next_step_click', { source: '9b' });
+            showNextStep();
+        };
+    }
+
+    /* ── 10 · Kitas žingsnis — shared VISION page, no email ─ */
+
+    function showNextStep() {
+        track('next_step_view');
+        render(
+            '<h1 class="h1-p next-hero">' + esc(T('next.reward')) + '</h1>' +
+            '<p class="next-hero-sub">' + esc(T('next.gapIntro')) + '</p>' +
+            '<div class="curiosity-q">' + esc(T('next.question')) + '</div>' +
+            '<div class="next-section-title">' + esc(T('next.gapsTitle')) + '</div>' +
+            [1, 2, 3].map(function (i) {
+                return '<div class="gap-row"><span class="gap-dot"><i></i></span><span>' + esc(T('next.gap' + i)) + '</span></div>';
+            }).join('') +
+            '<div class="next-section-title">' + esc(T('next.methodTitle')) + '</div>' +
+            '<div class="sage-card">' + MOUNTAIN(30, 17, 'style="flex-shrink:0;margin-top:.2rem"') +
+            '<p>' + esc(T('next.methodBody')) + '</p></div>' +
+            '<div class="red-block">' +
+            '<h2>' + esc(T('next.heroBig')) + '</h2>' +
+            '<p>' + esc(T('next.heroBigSub')) + '</p>' +
+            '<a class="btn-p on-red" id="visionBtn" href="' + esc(S.links.vision || '#') + '" target="_blank" rel="noopener">' +
+            esc(T('next.visionCta')) + '</a>' +
+            '</div>' +
+            '<div class="next-links">' +
+            '<div>' + esc(T('next.deeper')) + ' <a href="' + esc(S.links.session || '#') + '" target="_blank" rel="noopener" id="sessionLink">' +
+            esc(T('next.sessionLink')) + '</a></div>' +
+            '<div>' + esc(T('next.moreInsights')) + ' <a href="' + esc(S.links.facebook || '#') + '" target="_blank" rel="noopener" id="fbLink">' +
+            esc(T('next.followFb')) + '</a></div>' +
+            '</div>' +
+            '<div class="next-footer"><div class="mark">' + MOUNTAIN(24, 14) + '</div>' + esc(T('next.tagline')) + '</div>'
+        );
+        document.getElementById('visionBtn').addEventListener('click', function () { track('vision_method_click'); });
+        document.getElementById('sessionLink').addEventListener('click', function () { track('session_info_click'); });
+        document.getElementById('fbLink').addEventListener('click', function () { track('follow_click', { source: 'next_step' }); });
+    }
+
 
     /* ── Resume ──────────────────────────────────────────── */
 
@@ -933,7 +942,8 @@
             case 'email_captured':
                 if (s.result) {
                     S.result = s.result;
-                    if (s.status === 'email_captured') { showSent(); } else { showResult(); }
+                    // email already captured → the unlocked state; otherwise the gate
+                    if (s.status === 'email_captured') { showUnlocked(); } else { showResult(); }
                     return;
                 }
                 showIntro(); return;

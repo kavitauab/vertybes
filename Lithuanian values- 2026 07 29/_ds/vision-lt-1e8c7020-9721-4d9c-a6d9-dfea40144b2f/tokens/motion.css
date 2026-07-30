@@ -1,0 +1,17 @@
+/* ============================================================
+   Motion — Vision Coaching
+   ------------------------------------------------------------
+   Calm, editorial motion: soft ease-out, short transforms, no
+   bounce. Entrances animate transform only (never opacity-from-0
+   on critical text) so content is never hidden in print, no-JS,
+   or reduced-motion contexts.
+   ============================================================ */
+:root {
+  --ease-out:      cubic-bezier(0.22, 1, 0.36, 1); /* @kind other */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+
+  --dur-fast: 0.18s; /* @kind other */
+  --dur-base: 0.28s; /* @kind other */
+  --dur-slow: 0.7s;  /* @kind other */
+  --dur-rise: 0.8s;  /* @kind other */
+}

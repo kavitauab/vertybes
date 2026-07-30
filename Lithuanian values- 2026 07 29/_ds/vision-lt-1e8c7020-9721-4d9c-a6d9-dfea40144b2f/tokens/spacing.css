@@ -1,0 +1,23 @@
+/* ============================================================
+   Spacing & layout — Vision Coaching
+   ------------------------------------------------------------
+   8px base unit; scale skips to powers/multiples of 8 (Mastercard
+   spec). Generous whitespace is structure, not absence.
+   ============================================================ */
+:root {
+  --space-0:  0;
+  --space-1:  0.5rem;   /* 8  */
+  --space-2:  1rem;     /* 16 */
+  --space-3:  1.5rem;   /* 24 */
+  --space-4:  2rem;     /* 32 */
+  --space-6:  3rem;     /* 48 */
+  --space-8:  4rem;     /* 64 */
+  --space-12: 6rem;     /* 96 */
+  --space-16: 8rem;     /* 128 */
+
+  /* ---- Layout ---- */
+  --section-pad:   clamp(4.5rem, 11vw, 9rem); /* vertical rhythm between sections */
+  --container-max: 1180px;                    /* centered content width */
+  --gutter:        clamp(1.25rem, 5vw, 4rem); /* @kind spacing */
+  --measure:       60ch;                      /* comfortable reading width */
+}
