@@ -896,6 +896,19 @@ try {
             $value1 = $top[0]['label_lt'] ?? '';
             $value2 = $top[1]['label_lt'] ?? '';
 
+            // Screen 8 hides the interpretation, so a fast submit can arrive
+            // before the background generation finished. The result email needs
+            // it, so make sure it exists here (cached per value pair).
+            if ($r['tension_text'] === null) {
+                $pair = tfPairText($db, $top);
+                $db->update('session_results', [
+                    'tension_text' => $pair['tension'],
+                    'meaning_text' => $pair['meaning'],
+                ], 'session_id = ?', [$session['id']]);
+                $r['tension_text'] = $pair['tension'];
+                $r['meaning_text'] = $pair['meaning'];
+            }
+
             // referral_code is client/URL input — verify against coaches, never trust it
             $leadSource = substr((string)($session['lead_source'] ?? ''), 0, 60);
             $referral = substr((string)($session['referral_code'] ?? ''), 0, 60);
