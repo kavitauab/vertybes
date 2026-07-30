@@ -654,6 +654,41 @@
         });
     }
 
+    /* ── 7 · Tie-break (only on a true tie) ──────────────── */
+
+    function showTiebreak(c) {
+        function card(key) {
+            var lbl = (candidate(key) || {}).label_lt || key;
+            return '<button class="tb-card" data-key="' + esc(key) + '">' +
+                '<div class="tb-name">' + esc(lbl) + '</div></button>';
+        }
+        render(
+            '<div class="tb-chip-wrap"><span class="chip-soft">' + esc(T('tiebreak.chip')) + '</span></div>' +
+            '<h1 class="h1-p h-center">' + esc(T('tiebreak.title')) + '</h1>' +
+            '<p class="sub-p sub-center" style="margin:.5rem 0 1.5rem">' + esc(T('tiebreak.sub')) + '</p>' +
+            card(c.left_value_key) + card(c.right_value_key) +
+            '<div class="tb-caption">' + esc(T('tiebreak.caption')) + '</div>',
+            true
+        );
+        app.querySelectorAll('.tb-card').forEach(function (btn) {
+            btn.onclick = function () {
+                app.querySelectorAll('.tb-card').forEach(function (x) { x.disabled = true; });
+                track('tiebreak_choice', {
+                    chosen_value: (candidate(btn.dataset.key) || {}).label_lt || btn.dataset.key,
+                    other_value: (candidate(btn.dataset.key === c.left_value_key ? c.right_value_key : c.left_value_key) || {}).label_lt,
+                });
+                api('saveComparison', {
+                    pair_index: c.pair_index,
+                    winner_value_key: btn.dataset.key,
+                }).then(function (d) {
+                    if (!d || !d.success) { showTiebreak(c); return; }
+                    c.winner_value_key = btn.dataset.key;
+                    handleProgress(d.progress);
+                });
+            };
+        });
+    }
+
     function handleProgress(p) {
         if (!p) return;
         if (p.state === 'final') {
